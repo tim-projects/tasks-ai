@@ -369,6 +369,7 @@ class TasksCLI:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
+        prog="tasks",
         description="Tasks CLI: An agent-optimized task manager for Git repositories.",
         epilog="Agent Guidance: Use the global --json flag for all operations to receive structured, parseable data."
     )
