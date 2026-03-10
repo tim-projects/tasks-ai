@@ -4,8 +4,16 @@
 
 ## 🚀 One-Line Install
 
+### Local (No Sudo)
+Installs to `~/.local/bin/tasks`.
 ```bash
-curl -sSL https://raw.githubusercontent.com/tim-projects/tasks-ai/main/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/tim-projects/tasks-ai/main/install.sh | bash -s -- --local
+```
+
+### System-Wide (Sudo)
+Installs to `/usr/local/bin/tasks`.
+```bash
+curl -sSL https://raw.githubusercontent.com/tim-projects/tasks-ai/main/install.sh | sudo bash -s -- --system
 ```
 
 ## 🛠️ Getting Started
