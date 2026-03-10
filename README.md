@@ -30,7 +30,7 @@ The agent will then autonomously:
 ## 🤖 Why Agents Prefer This
 
 - **Zero Dependencies**: Standard library Python only. No `pip install` required.
-- **JSON Interface**: Global `--json` flag for stable machine parsing.
+- **JSON Interface**: Global `-j` flag for stable machine parsing.
 - **Context Dense**: Short metadata keys (`Ti`, `St`, `Cr`) minimize token usage.
 - **Git-Native**: Commits and technical notes are automatically embedded into the task records.
 - **State Enforced**: Mandatory gates for Acceptance Criteria and Reproduction Steps ensure high-quality output.

@@ -43,7 +43,7 @@ DUMP_TEMPLATE = "---\nTask: {task_file}\n---\n## Notes\n- Progress: \n- Findings
 
 AGENT_GUIDANCE = """
 AGENT OPERATIONAL PROTOCOL:
-1. Always use --json flag for machine-parseable streams.
+1. Always use -j flag for machine-parseable streams.
 2. JSON SCHEMA:
    Success: {"success": true, "messages": [], "data": {}}
    Error:   {"success": false, "error": "...", "messages": []}
@@ -426,9 +426,10 @@ if __name__ == "__main__":
         prog="tasks-ai",
         description="Tasks AI: An agent-optimized task manager for Git repositories.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=AGENT_GUIDANCE
+        epilog=AGENT_GUIDANCE,
+        add_help=True
     )
-    parser.add_argument("--json", action="store_true", help="Enable unbroken JSON output for AI agent integration.")
+    parser.add_argument("-j", "--json", action="store_true", help="Enable unbroken JSON output for AI agent integration.")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("init", help="Initialize the .tasks worktree and orphan branch. Required first step.")
     list_p = subparsers.add_parser("list", help="List active tasks sorted by priority. ARCHIVED is hidden by default.")
