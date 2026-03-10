@@ -7,13 +7,13 @@
 ### Local (No Sudo)
 Installs to `~/.local/bin/tasks-ai`.
 ```bash
-curl -sSL https://raw.githubusercontent.com/tim-projects/tasks-ai/main/install.sh | bash -s -- --local
+curl -sSL https://raw.githubusercontent.com/tim-projects/tasks-ai/main/install.sh | bash
 ```
 
-### System-Wide (Sudo)
+### System-Wide
 Installs to `/usr/local/bin/tasks-ai`.
 ```bash
-curl -sSL https://raw.githubusercontent.com/tim-projects/tasks-ai/main/install.sh | sudo bash -s -- --system
+curl -sSL https://raw.githubusercontent.com/tim-projects/tasks-ai/main/install.sh | sudo bash
 ```
 
 ## 🛠️ Getting Started
@@ -29,6 +29,7 @@ The agent will then autonomously:
 
 ## 🤖 Why Agents Prefer This
 
+- **Zero Dependencies**: Standard library Python only. No `pip install` required.
 - **JSON Interface**: Global `--json` flag for stable machine parsing.
 - **Context Dense**: Short metadata keys (`Ti`, `St`, `Cr`) minimize token usage.
 - **Git-Native**: Commits and technical notes are automatically embedded into the task records.

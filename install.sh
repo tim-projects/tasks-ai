@@ -5,41 +5,33 @@ set -e
 
 # Default values
 MODE="local"
-DEST_DIR="$HOME/.local/bin"
-USE_SUDO=""
+# If running as root, default to system install
+if [ "$EUID" -eq 0 ]; then
+    MODE="system"
+    DEST_DIR="/usr/local/bin"
+else
+    MODE="local"
+    DEST_DIR="$HOME/.local/bin"
+fi
 
-# Parse arguments
+# Parse arguments to allow override
 for arg in "$@"; do
   case $arg in
     --system)
       MODE="system"
       DEST_DIR="/usr/local/bin"
-      USE_SUDO="sudo"
       ;;
     --local)
       MODE="local"
       DEST_DIR="$HOME/.local/bin"
-      USE_SUDO=""
       ;;
   esac
 done
 
 # Check for python3
 if ! command -v python3 &> /dev/null; then
-    echo "Error: python3 is not installed."
+    echo "Error: python3 is not installed. Tasks AI requires Python 3."
     exit 1
-fi
-
-# Install dependencies
-echo "Installing dependencies ($MODE)..."
-if [ "$MODE" == "system" ]; then
-    sudo pip3 install python-frontmatter --break-system-packages || sudo pip3 install python-frontmatter || {
-        echo "Warning: System pip install failed. Ensure dependencies are met manually."
-    }
-else
-    pip3 install --user python-frontmatter || {
-        echo "Warning: Local pip install failed. Ensure dependencies are met manually."
-    }
 fi
 
 # Define source and destination
@@ -52,19 +44,35 @@ if [ ! -f "$SOURCE_FILE" ]; then
     exit 1
 fi
 
-# Ensure destination directory exists for local install
-if [ "$MODE" == "local" ]; then
-    mkdir -p "$DEST_DIR"
+# Ensure destination directory exists
+if [ ! -d "$DEST_DIR" ]; then
+    echo "Creating directory $DEST_DIR..."
+    if [ "$MODE" == "system" ] && [ "$EUID" -ne 0 ]; then
+        sudo mkdir -p "$DEST_DIR"
+    else
+        mkdir -p "$DEST_DIR"
+    fi
 fi
 
 # Copy and make executable
-echo "Installing tasks-ai to $DEST_PATH..."
-$USE_SUDO cp "$SOURCE_FILE" "$DEST_PATH"
-$USE_SUDO chmod +x "$DEST_PATH"
+echo "Installing Tasks AI to $DEST_PATH..."
+if [ "$EUID" -ne 0 ] && [ "$MODE" == "system" ]; then
+    sudo cp "$SOURCE_FILE" "$DEST_PATH"
+    sudo chmod +x "$DEST_PATH"
+else
+    cp "$SOURCE_FILE" "$DEST_PATH"
+    chmod +x "$DEST_PATH"
+fi
 
+echo "--------------------------------------------------"
 echo "Installation complete!"
 if [ "$MODE" == "local" ]; then
-    echo "Make sure $DEST_DIR is in your PATH."
-    echo "You can add it by adding 'export PATH=\$PATH:\$HOME/.local/bin' to your .bashrc or .zshrc"
+    # Check if DEST_DIR is in PATH
+    if [[ ":$PATH:" != *":$DEST_DIR:"* ]]; then
+        echo "Warning: $DEST_DIR is not in your PATH."
+        echo "Add this to your .bashrc or .zshrc:"
+        echo "  export PATH=\$PATH:\$HOME/.local/bin"
+    fi
 fi
-echo "You can now use 'tasks' from anywhere."
+echo "You can now run: tasks-ai --help"
+echo "--------------------------------------------------"
