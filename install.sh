@@ -44,7 +44,7 @@ fi
 
 # Define source and destination
 SOURCE_FILE="tasks.py"
-DEST_PATH="$DEST_DIR/tasks"
+DEST_PATH="$DEST_DIR/tasks-ai"
 
 # Check if script exists
 if [ ! -f "$SOURCE_FILE" ]; then

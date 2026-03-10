@@ -88,17 +88,17 @@ Files use optimized short-keys to save character space:
 - **Logs**: `tasks/logs/{filename}` tracks every transition.
 - **Dump**: `tasks/current-task.md` is the scratchpad for the active task. Content here is merged into the main file during `move` or `checkpoint`.
 
----
+**Command Pattern:** `tasks-ai --json <command> [args]`
 
-## 5. Agent Implementation Pattern
+...
 
-1. **Scan**: Run `python3 tasks.py --json list` to find high-priority tasks in `READY`.
-2. **Activate**: Run `python3 tasks.py --json move <file> PROGRESSING`.
+1. **Scan**: Run `tasks-ai --json list` to find high-priority tasks in `READY`.
+2. **Activate**: Run `tasks-ai --json move <file> PROGRESSING`.
 3. **Work**:
    - Check out the branch named in the task.
    - Perform implementation.
    - Update `tasks/current-task.md` with findings/notes.
    - Commit code changes.
-4. **Sync**: Run `python3 tasks.py --json checkpoint` to merge notes and commits into the record.
-5. **Verify**: Run `python3 tasks.py --json move <file> TESTING`.
+4. **Sync**: Run `tasks-ai --json checkpoint` to merge notes and commits into the record.
+5. **Verify**: Run `tasks-ai --json move <file> TESTING`.
 6. **Cycle**: Repeat through `REVIEW`, `STAGING`, and `LIVE`.
