@@ -7,6 +7,8 @@ import tempfile
 import re
 import json
 import shutil
+import random
+import string
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -64,6 +66,8 @@ AGENT OPERATIONAL PROTOCOL:
 6. RULES: 
    - All blockers (Bl) in metadata MUST be ARCHIVED before moving to PROGRESSING.
    - Use 'list' to find tasks and 'current' to see full metadata/logs.
+7. ERROR RECOVERY: If a command fails, read the 'error' field in the JSON response. 
+   It will contain specific guidance and allowed next steps (HINT).
 """
 
 
@@ -173,7 +177,7 @@ class FM:
 
 
 class TasksCLI:
-    def __init__(self, as_json=False):
+    def __init__(self, as_json=False, command=None):
         self.as_json = as_json
         self.output_messages = []
         self.root = self._get_git_root()
@@ -181,6 +185,25 @@ class TasksCLI:
         self.logs_path = os.path.join(self.tasks_path, LOGS_DIR)
         if os.path.exists(self.tasks_path):
             self._auto_archive()
+            if command and command != "delete":
+                self._clear_delete_marks()
+
+    def _clear_delete_marks(self):
+        updated = False
+        for state, folder in STATE_FOLDERS.items():
+            dir_path = os.path.join(self.tasks_path, folder)
+            if not os.path.exists(dir_path): continue
+            for item in os.listdir(dir_path):
+                if item == ".gitkeep": continue
+                path = os.path.join(dir_path, item)
+                task = FM.load(path)
+                if "DeleteCode" in task.metadata:
+                    del task.metadata["DeleteCode"]
+                    self._atomic_write(path, task)
+                    updated = True
+        if updated:
+            self._run_git(["add", "--all"], cwd=self.tasks_path)
+            self._run_git(["commit", "-m", "Clear delete marks"], cwd=self.tasks_path)
 
     def _get_git_root(self):
         try:
@@ -238,7 +261,9 @@ class TasksCLI:
         else:
             print(message)
 
-    def error(self, message):
+    def error(self, message, hint=None):
+        if hint:
+            message = f"{message} | HINT: {hint}"
         if self.as_json:
             print(json.dumps({"success": False, "error": message, "messages": self.output_messages}))
             sys.exit(1)
@@ -309,6 +334,41 @@ class TasksCLI:
             f.write(f"- {timestamp}: {entry}\n")
         self._run_git(["add", os.path.join(LOGS_DIR, name)], cwd=self.tasks_path)
 
+    def delete(self, filename, confirm=None):
+        filepath, _ = self.find_task(filename)
+        if not filepath: self.error(f"Task '{filename}' not found.")
+        task = FM.load(filepath)
+        task_id = os.path.basename(filepath).rsplit(".", 1)[0]
+        
+        if not confirm:
+            code = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+            task.metadata["DeleteCode"] = code
+            self._atomic_write(filepath, task)
+            self._run_git(["add", "--all"], cwd=self.tasks_path)
+            self._run_git(["commit", "-m", f"Mark {task_id} for deletion"], cwd=self.tasks_path)
+            self.log(f"Task '{task_id}' marked for deletion.")
+            self.log(f"To confirm, run: tasks-ai delete {task_id} --confirm {code}")
+            self.log("WARNING: Running any other command will revert this mark.")
+            self.finish({"task_id": task_id, "delete_code": code})
+        
+        if task.metadata.get("DeleteCode") != confirm:
+            self.error("Invalid or missing confirmation code.", hint=f"Run 'tasks-ai delete {task_id}' again to get a new code.")
+        
+        log_file = os.path.join(self.logs_path, task_id)
+        try:
+            if os.path.isdir(filepath): shutil.rmtree(filepath)
+            else: os.remove(filepath)
+            if os.path.exists(log_file): os.remove(log_file)
+            dump_path = os.path.join(self.tasks_path, CURRENT_TASK_FILENAME)
+            if os.path.exists(dump_path):
+                dump = FM.load(dump_path)
+                if dump.get("Task") == task_id: os.remove(dump_path)
+            self._run_git(["add", "--all"], cwd=self.tasks_path)
+            self._run_git(["commit", "-m", f"Del {task_id}"], cwd=self.tasks_path)
+            self.log(f"Deleted: {task_id}")
+        except Exception as e: self.error(str(e))
+        self.finish()
+
     def find_task(self, name):
         if not name: return None, None
         task_id = name.rsplit(".", 1)[0]
@@ -327,7 +387,7 @@ class TasksCLI:
         if not criteria: missing.append("--criteria")
         if not plan: missing.append("--plan")
         if task_type == "issue" and not repro: missing.append("--repro")
-        if missing: self.error(f"Missing required parameters: {', '.join(missing)}")
+        if missing: self.error(f"Missing required parameters: {', '.join(missing)}", hint="Tasks require --story, --tech, --criteria, and --plan. Issues also require --repro.")
 
         clean_title = "".join(c if c.isalnum() else "-" for c in title.lower()).strip("-")
         task_id = f"{task_type}_{clean_title[:30]}"
@@ -354,7 +414,7 @@ class TasksCLI:
 
     def modify(self, filename, title=None, story=None, tech=None, criteria=None, plan=None, repro=None, notes=None, progress=None, findings=None, mitigations=None):
         filepath, _ = self.find_task(filename)
-        if not filepath: self.error(f"Task {filename} not found.")
+        if not filepath: self.error(f"Task '{filename}' not found.", hint="Use 'tasks-ai list' to see all available task filenames/IDs.")
         task = FM.load(filepath)
         updated = False
         if title:
@@ -461,15 +521,15 @@ class TasksCLI:
     def _move_logic(self, filename, new_status, force=False):
         new_status = new_status.upper()
         filepath, current_state = self.find_task(filename)
-        if not filepath: self.error(f"Task {filename} not found.")
+        if not filepath: self.error(f"Task '{filename}' not found.", hint="Use 'tasks-ai list' to see all available task filenames/IDs.")
         if current_state == new_status: return
         if new_status not in ALLOWED_TRANSITIONS.get(current_state, []) and not force:
-            self.error(f"Forbidden: {current_state}->{new_status}.")
+            self.error(f"Forbidden transition: {current_state} -> {new_status}", hint=f"Allowed transitions from {current_state} are: {', '.join(ALLOWED_TRANSITIONS.get(current_state, []))}")
         task = FM.load(filepath)
         if new_status == "PROGRESSING":
             for b in task.get("Bl", []):
                 _, bs = self.find_task(b)
-                if bs != "ARCHIVED": self.error(f"Blocked by {b}")
+                if bs != "ARCHIVED": self.error(f"Blocked by {b}. Blocker must be ARCHIVED first.")
         self._sync_task_content(filepath, task, is_final=(new_status == "ARCHIVED"))
         task["St"] = new_status
         self._append_log(os.path.basename(filepath), f"{current_state}->{new_status}")
@@ -569,12 +629,14 @@ if __name__ == "__main__":
     cr_p = subparsers.add_parser("create", help="Create task."); cr_p.add_argument("title"); cr_p.add_argument("--type", default="task", choices=["task", "issue"]); cr_p.add_argument("--priority", "-p", type=int); cr_p.add_argument("--story"); cr_p.add_argument("--tech"); cr_p.add_argument("--criteria", nargs="+"); cr_p.add_argument("--plan", nargs="+"); cr_p.add_argument("--repro", nargs="+")
     mod_p = subparsers.add_parser("modify", help="Update task."); mod_p.add_argument("filename"); mod_p.add_argument("--title"); mod_p.add_argument("--story"); mod_p.add_argument("--tech"); mod_p.add_argument("--criteria", nargs="+"); mod_p.add_argument("--plan", nargs="+"); mod_p.add_argument("--repro", nargs="+"); mod_p.add_argument("--notes"); mod_p.add_argument("--progress"); mod_p.add_argument("--findings"); mod_p.add_argument("--mitigations")
     mv_p = subparsers.add_parser("move", help="Move task."); mv_p.add_argument("filename"); mv_p.add_argument("status")
+    del_p = subparsers.add_parser("delete", help="Permanently remove a task and its logs."); del_p.add_argument("filename"); del_p.add_argument("--confirm", help="Unique confirmation code required to finalize deletion.")
     rec_p = subparsers.add_parser("reconcile", help="Archive orphans."); rec_p.add_argument("target", nargs="?")
-    args = parser.parse_args(); cli = TasksCLI(as_json=args.json)
+    args = parser.parse_args(); cli = TasksCLI(as_json=args.json, command=args.command)
     if args.command == "init": cli.init()
     elif args.command == "create": cli.create(args.title, args.type, args.priority, story=args.story, tech=args.tech, criteria=args.criteria, plan=args.plan, repro=args.repro)
     elif args.command == "modify": cli.modify(args.filename, title=args.title, story=args.story, tech=args.tech, criteria=args.criteria, plan=args.plan, repro=args.repro, notes=args.notes, progress=args.progress, findings=args.findings, mitigations=args.mitigations)
     elif args.command == "move": cli.move(args.filename, args.status)
+    elif args.command == "delete": cli.delete(args.filename, confirm=args.confirm)
     elif args.command == "list": cli.list(show_all=args.all)
     elif args.command == "current": cli.current(args.filename)
     elif args.command == "checkpoint": cli.checkpoint(args.filename)
