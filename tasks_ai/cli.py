@@ -735,9 +735,9 @@ class TasksCLI:
             self.finish(all_data)
         else:
             for state, tasks in all_data.items():
-                print(
-                    f"\n### {state}\n| # | P | Summary | Type | Branch | Blocked By |\n|---|---|---------|------|--------|------------|"
-                )
+                print(f"\n### {state}")
+                print("| # | P | Summary | Type | Branch | Blocked By |")
+                print("|---|---|---------|------|--------|------------|")
                 for t in tasks:
                     print(
                         f"| {t.get('id', '')} | {t['p']} | {t['summary']} | {t['type']} | `{t['branch']}` | {', '.join(t['blocked_by']) if t['blocked_by'] else '-'} |"
