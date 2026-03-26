@@ -816,17 +816,18 @@ class TasksCLI:
                 print(f"{'#':>3} {'P':>2} {'Summary':<40} {'Type':<6} {'Branch':<20}")
                 print("-" * 80)
                 for t in tasks:
-                    lines = textwrap.wrap(t["summary"], width=40) or [""]
-                    first = True
-                    for line in lines:
-                        id_str = str(t.get("id", "")) if first else ""
-                        p_str = str(t["p"]) if first else ""
-                        type_str = t["type"] if first else ""
-                        branch_str = t["branch"][:20] if first else ""
+                    summary_lines = textwrap.wrap(t["summary"], width=40) or [""]
+                    branch_lines = textwrap.wrap(t["branch"], width=20) or [""]
+                    max_lines = max(len(summary_lines), len(branch_lines))
+                    for i in range(max_lines):
+                        id_str = str(t.get("id", "")) if i == 0 else ""
+                        p_str = str(t["p"]) if i == 0 else ""
+                        s_line = summary_lines[i] if i < len(summary_lines) else ""
+                        type_str = t["type"] if i == 0 else ""
+                        b_line = branch_lines[i] if i < len(branch_lines) else ""
                         print(
-                            f"{id_str:>3} {p_str:>2} {line:<40} {type_str:<6} {branch_str:<20}"
+                            f"{id_str:>3} {p_str:>2} {s_line:<40} {type_str:<6} {b_line:<20}"
                         )
-                        first = False
             self.finish()
 
     def reconcile(self, target=None):
