@@ -117,7 +117,8 @@ class TasksCLI:
     def finish(self, data=None):
         if self.as_json:
             print(json.dumps({"success": True, "messages": self.output_messages, "data": data}, indent=2))
-        sys.exit(0)
+        if not hasattr(sys, "_called_from_test"):
+            sys.exit(0)
 
     def _auto_archive(self):
         live_dir = os.path.join(self.tasks_path, STATE_FOLDERS["LIVE"])
