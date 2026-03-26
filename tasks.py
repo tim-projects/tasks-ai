@@ -6,6 +6,7 @@ import argparse
 import tempfile
 import re
 import json
+import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -47,29 +48,29 @@ KEY_MAP = {
     "Ar": "ArchivedAt",
 }
 
-TASK_SCOPE = "## Scope\n- Requirements: \n- Success/Acceptance Criteria: \n"
-ISSUE_SCOPE = "## Scope\n- Symptom: \n- Reproduction Steps: \n- Root Cause (if known): \n- Fix/Test Plan: \n"
-DUMP_TEMPLATE = "---\nTask: {task_file}\n---\n## Notes\n- Progress: \n- Findings: \n- Mitigations: \n"
-
 AGENT_GUIDANCE = """
 AGENT OPERATIONAL PROTOCOL:
-1. Always use -j flag for machine-parseable streams.
-2. JSON SCHEMA:
-   Success: {"success": true, "messages": [], "data": {}}
-   Error:   {"success": false, "error": "...", "messages": []}
-3. RULES:
-   - Only ONE task/issue in PROGRESSING at a time.
-   - Task MUST be in PROGRESSING before modifying code.
-   - Blockers (Bl) MUST be ARCHIVED before a task moves to PROGRESSING.
-   - Use 'checkpoint' frequently to sync current-task.md and branch commits.
-   - Filenames are {type}_{branch}.md (e.g. task_ui-fix.md).
+1. OUTPUT: Always use -j flag for machine-parseable JSON. 
+   Schema: {"success": bool, "error": str|null, "messages": [str], "data": {}}
+2. CREATION: 'create' requires --story, --tech, --criteria, and --plan. 
+   --repro is mandatory for --type issue. Titles must be >= 10 chars.
+3. LIFECYCLE: BACKLOG -> READY -> PROGRESSING -> TESTING -> REVIEW -> STAGING -> LIVE -> ARCHIVED.
+   - Task MUST be in PROGRESSING before modifying project code.
+   - 'move' to PROGRESSING creates/syncs 'tasks/current-task.md'.
+4. PROGRESS: Use 'modify' to update --progress, --findings, or --mitigations.
+   - Updates to the active task automatically sync to 'tasks/current-task.md'.
+   - Use 'tasks/current-task.md' as your primary scratchpad while working.
+5. SYNC: Use 'checkpoint' to pull git commits and current-task.md notes into the task file.
+6. RULES: 
+   - All blockers (Bl) in metadata MUST be ARCHIVED before moving to PROGRESSING.
+   - Use 'list' to find tasks and 'current' to see full metadata/logs.
 """
 
 
-class Post:
-    def __init__(self, content, **metadata):
-        self.content = content
-        self.metadata = metadata
+class Task:
+    def __init__(self, metadata=None, parts=None):
+        self.metadata = metadata or {}
+        self.parts = parts or {}
 
     def __getitem__(self, key):
         return self.metadata.get(key)
@@ -80,59 +81,95 @@ class Post:
     def get(self, key, default=None):
         return self.metadata.get(key, default)
 
+    @property
+    def content(self):
+        # Reconstruct full content for display/compatibility
+        lines = [self.metadata.get("Ti", "")]
+        parts_order = ["story", "tech", "criteria", "plan", "repro", "notes", "commits"]
+        for part in parts_order:
+            if part in self.parts and self.parts[part].strip():
+                header = part.replace("_", " ").title()
+                if part == "story":
+                     lines.append(f"\n## Context\n- **User Story**: {self.parts[part].strip()}")
+                elif part == "tech":
+                     if "story" in self.parts:
+                         lines[-1] += f"\n- **Technical Background**: {self.parts[part].strip()}"
+                     else:
+                         lines.append(f"\n## Context\n- **Technical Background**: {self.parts[part].strip()}")
+                else:
+                    lines.append(f"\n## {header}\n{self.parts[part].strip()}")
+        return "\n".join(lines)
+
 
 class FM:
     @staticmethod
-    def load(filepath):
-        if not os.path.exists(filepath):
-            return Post("", **{})
-        with open(filepath, "r", encoding="utf-8") as f:
-            try:
-                lines = f.readlines()
-            except Exception:
-                return Post("", **{})
-        if not lines or lines[0].strip() != "---":
-            return Post("".join(lines), **{})
-        meta, content_start = {}, -1
-        for i in range(1, len(lines)):
-            line = lines[i].strip()
-            if line == "---":
-                content_start = i + 1
-                break
-            if ":" in line:
-                k, v = [s.strip() for s in line.split(":", 1)]
-                if v.startswith("[") and v.endswith("]"):
-                    inner = v[1:-1].strip()
-                    meta[k] = (
-                        [
-                            item.strip().strip("'").strip('"')
-                            for item in inner.split(",")
-                        ]
-                        if inner
-                        else []
-                    )
-                elif v.isdigit():
-                    meta[k] = int(v)
-                else:
-                    meta[k] = v.strip("'").strip('"')
-        return Post(
-            "".join(lines[content_start:]) if content_start != -1 else "", **meta
-        )
+    def load(path):
+        if not os.path.exists(path):
+            return Task()
+        
+        if os.path.isfile(path):
+            with open(path, "r", encoding="utf-8") as f:
+                content = f.read()
+            if not content.startswith("---"):
+                return Task(parts={"content": content})
+            
+            meta = {}
+            lines = content.splitlines()
+            content_start = -1
+            for i in range(1, len(lines)):
+                line = lines[i].strip()
+                if line == "---":
+                    content_start = i + 1
+                    break
+                if ":" in line:
+                    k, v = [s.strip() for s in line.split(":", 1)]
+                    if v.startswith("[") and v.endswith("]"):
+                        inner = v[1:-1].strip()
+                        meta[k] = [item.strip().strip("'").strip('"') for item in inner.split(",")] if inner else []
+                    elif v.isdigit():
+                        meta[k] = int(v)
+                    else:
+                        meta[k] = v.strip("'").strip('"')
+            
+            body = "\n".join(lines[content_start:]) if content_start != -1 else ""
+            return Task(metadata=meta, parts={"content": body})
+
+        meta = {}
+        meta_path = os.path.join(path, "meta.json")
+        if os.path.exists(meta_path):
+            with open(meta_path, "r") as f:
+                meta = json.load(f)
+        
+        parts = {}
+        for f in os.listdir(path):
+            if f.endswith(".md"):
+                part_name = f[:-3]
+                with open(os.path.join(path, f), "r") as file:
+                    parts[part_name] = file.read()
+        return Task(metadata=meta, parts=parts)
 
     @staticmethod
-    def dump(post, f):
-        f.write(b"---\n")
-        for k, v in post.metadata.items():
-            if isinstance(v, list):
-                val = "[" + ", ".join(f'"{item}"' for item in v) + "]"
-            else:
-                val = v
-            f.write(f"{k}: {val}\n".encode("utf-8"))
-        f.write(b"---\n")
-        content = post.content
-        if content and not content.startswith("\n"):
-            f.write(b"\n")
-        f.write(content.encode("utf-8"))
+    def dump(task, path):
+        if path.endswith(".md"):
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w") as f:
+                f.write("---\n")
+                for k, v in task.metadata.items():
+                    val = "[" + ", ".join(f'"{item}"' for item in v) + "]" if isinstance(v, list) else v
+                    f.write(f"{k}: {val}\n")
+                f.write("---\n\n")
+                f.write(task.parts.get("content", task.content))
+            return
+
+        os.makedirs(path, exist_ok=True)
+        with open(os.path.join(path, "meta.json"), "w") as f:
+            json.dump(task.metadata, f, indent=2)
+        
+        for name, content in task.parts.items():
+            if name == "content": continue
+            if content is None: continue
+            with open(os.path.join(path, f"{name}.md"), "w") as f:
+                f.write(content)
 
 
 class TasksCLI:
@@ -147,13 +184,7 @@ class TasksCLI:
 
     def _get_git_root(self):
         try:
-            return (
-                subprocess.check_output(
-                    ["git", "rev-parse", "--show-toplevel"], stderr=subprocess.DEVNULL
-                )
-                .decode()
-                .strip()
-            )
+            return subprocess.check_output(["git", "rev-parse", "--show-toplevel"], stderr=subprocess.DEVNULL).decode().strip()
         except subprocess.CalledProcessError:
             self.error("Not a git repository.")
             sys.exit(1)
@@ -162,29 +193,43 @@ class TasksCLI:
         cwd = cwd or self.root
         return subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True)
 
-    def _parse_filename(self, filename):
-        name_part = filename.rsplit(".", 1)[0]
+    def _parse_filename(self, name):
+        name_part = name.rsplit(".", 1)[0]
         if "_" in name_part:
             return name_part.split("_", 1)
         return "task", name_part
 
-    def _atomic_write(self, filepath, post_or_content):
-        dir_name = os.path.dirname(filepath)
-        os.makedirs(dir_name, exist_ok=True)
-        fd, temp_path = tempfile.mkstemp(dir=dir_name, text=False)
+    def _atomic_write(self, path, task_or_content):
+        if path.endswith(".md"):
+             dir_name = os.path.dirname(path)
+             os.makedirs(dir_name, exist_ok=True)
+             fd, temp_path = tempfile.mkstemp(dir=dir_name, text=False)
+             try:
+                 with os.fdopen(fd, "w") as f:
+                     if hasattr(task_or_content, "metadata"):
+                         FM.dump(task_or_content, path)
+                         return
+                     else:
+                         if isinstance(task_or_content, str):
+                            f.write(task_or_content)
+                         else:
+                            f.write(task_or_content.decode("utf-8"))
+                 os.replace(temp_path, path)
+             except Exception as e:
+                 if os.path.exists(temp_path): os.remove(temp_path)
+                 raise e
+             return
+
+        temp_dir = tempfile.mkdtemp(dir=os.path.dirname(path.rstrip("/")))
         try:
-            with os.fdopen(fd, "wb") as f:
-                if hasattr(post_or_content, "metadata"):
-                    FM.dump(post_or_content, f)
-                else:
-                    if isinstance(post_or_content, str):
-                        f.write(post_or_content.encode("utf-8"))
-                    else:
-                        f.write(post_or_content)
-            os.replace(temp_path, filepath)
+            shutil.rmtree(temp_dir)
+            FM.dump(task_or_content, temp_dir)
+            if os.path.exists(path):
+                shutil.rmtree(path)
+            os.rename(temp_dir, path)
         except Exception as e:
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
             raise e
 
     def log(self, message):
@@ -195,15 +240,7 @@ class TasksCLI:
 
     def error(self, message):
         if self.as_json:
-            print(
-                json.dumps(
-                    {
-                        "success": False,
-                        "error": message,
-                        "messages": self.output_messages,
-                    }
-                )
-            )
+            print(json.dumps({"success": False, "error": message, "messages": self.output_messages}))
             sys.exit(1)
         else:
             print(f"Error: {message}", file=sys.stderr)
@@ -211,23 +248,17 @@ class TasksCLI:
 
     def finish(self, data=None):
         if self.as_json:
-            print(
-                json.dumps(
-                    {"success": True, "messages": self.output_messages, "data": data},
-                    indent=2,
-                )
-            )
+            print(json.dumps({"success": True, "messages": self.output_messages, "data": data}, indent=2))
         sys.exit(0)
 
     def _auto_archive(self):
         live_dir = os.path.join(self.tasks_path, STATE_FOLDERS["LIVE"])
-        if not os.path.exists(live_dir):
-            return
+        if not os.path.exists(live_dir): return
         now = datetime.now()
-        for file in os.listdir(live_dir):
-            if not file.endswith(".md"):
-                continue
-            log_path = os.path.join(self.logs_path, file)
+        for folder in os.listdir(live_dir):
+            path = os.path.join(live_dir, folder)
+            if not os.path.isdir(path): continue
+            log_path = os.path.join(self.logs_path, folder)
             if os.path.exists(log_path):
                 with open(log_path, "r", encoding="utf-8") as f:
                     lines = f.readlines()
@@ -236,13 +267,11 @@ class TasksCLI:
                     if "->LIVE" in line:
                         match = re.search(r"- (\d{6} \d{2}:\d{2}):", line)
                         if match:
-                            live_date = datetime.strptime(
-                                match.group(1), "%y%m%d %H:%M"
-                            )
+                            live_date = datetime.strptime(match.group(1), "%y%m%d %H:%M")
                             break
                 if live_date and (now - live_date) > timedelta(days=7):
-                    self.log(f"Auto-archiving: {file}")
-                    self._move_logic(file, "ARCHIVED", force=True)
+                    self.log(f"Auto-archiving: {folder}")
+                    self._move_logic(folder, "ARCHIVED", force=True)
 
     def init(self):
         branches = self._run_git(["branch"]).stdout
@@ -258,564 +287,296 @@ class TasksCLI:
             if not os.path.exists(p):
                 os.makedirs(p)
                 Path(os.path.join(p, ".gitkeep")).touch()
-                self._run_git(
-                    ["add", os.path.join(folder, ".gitkeep")], cwd=self.tasks_path
-                )
+                self._run_git(["add", os.path.join(folder, ".gitkeep")], cwd=self.tasks_path)
         st = self._run_git(["status", "--porcelain"], cwd=self.tasks_path)
         if st.stdout:
             self._run_git(["commit", "-m", "Init tasks folders"], cwd=self.tasks_path)
         gitignore_path = os.path.join(self.root, ".gitignore")
         ignore_line = f"{TASKS_DIR}/"
         if os.path.exists(gitignore_path):
-            with open(gitignore_path, "r") as f:
-                content = f.read()
+            with open(gitignore_path, "r") as f: content = f.read()
             if ignore_line not in content:
-                with open(gitignore_path, "a") as f:
-                    f.write(f"\n{ignore_line}\n")
+                with open(gitignore_path, "a") as f: f.write(f"\n{ignore_line}\n")
         else:
-            with open(gitignore_path, "w") as f:
-                f.write(f"{ignore_line}\n")
+            with open(gitignore_path, "w") as f: f.write(f"{ignore_line}\n")
         self.log("Tasks initialized.")
         self.finish()
 
-    def _append_log(self, filename, entry):
-        log_file = os.path.join(self.logs_path, filename)
+    def _append_log(self, name, entry):
+        log_file = os.path.join(self.logs_path, name)
         timestamp = datetime.now().strftime("%y%m%d %H:%M")
         with open(log_file, "a", encoding="utf-8") as f:
             f.write(f"- {timestamp}: {entry}\n")
-        self._run_git(["add", os.path.join(LOGS_DIR, filename)], cwd=self.tasks_path)
+        self._run_git(["add", os.path.join(LOGS_DIR, name)], cwd=self.tasks_path)
 
-    def create(self, title, task_type="task", priority=None):
-        clean_title = "".join(c if c.isalnum() else "-" for c in title.lower()).strip(
-            "-"
-        )
-        branch_name = clean_title[:30]
-        filename = f"{task_type}_{branch_name}.md"
-        filepath = os.path.join(self.tasks_path, STATE_FOLDERS["BACKLOG"], filename)
-        if any(
-            os.path.exists(os.path.join(self.tasks_path, f, filename))
-            for f in STATE_FOLDERS.values()
-        ):
-            self.error(f"Task {filename} exists.")
-        if priority is None:
-            priority = 1 if task_type == "issue" else 2
-        post = Post(
-            f"{title}\n\n## Desc\n{title}\n\n{TASK_SCOPE if task_type == 'task' else ISSUE_SCOPE}",
-            Ti=title,
-            St="BACKLOG",
-            Cr=datetime.now().strftime("%y%m%d %H:%M"),
-            Bl=[],
-            Pr=priority,
+    def find_task(self, name):
+        if not name: return None, None
+        task_id = name.rsplit(".", 1)[0]
+        for state, folder in STATE_FOLDERS.items():
+            dir_path = os.path.join(self.tasks_path, folder, task_id)
+            if os.path.isdir(dir_path): return dir_path, state
+            file_path = dir_path + ".md"
+            if os.path.isfile(file_path): return file_path, state
+        return None, None
+
+    def create(self, title, task_type="task", priority=None, story=None, tech=None, criteria=None, plan=None, repro=None):
+        if len(title) < 10: self.error("Task title is too vague. Min 10 chars.")
+        missing = []
+        if not story: missing.append("--story")
+        if not tech: missing.append("--tech")
+        if not criteria: missing.append("--criteria")
+        if not plan: missing.append("--plan")
+        if task_type == "issue" and not repro: missing.append("--repro")
+        if missing: self.error(f"Missing required parameters: {', '.join(missing)}")
+
+        clean_title = "".join(c if c.isalnum() else "-" for c in title.lower()).strip("-")
+        task_id = f"{task_type}_{clean_title[:30]}"
+        task_dir = os.path.join(self.tasks_path, STATE_FOLDERS["BACKLOG"], task_id)
+        if self.find_task(task_id)[0]: self.error(f"Task {task_id} exists.")
+        
+        task = Task(
+            metadata={"Ti": title, "St": "BACKLOG", "Cr": datetime.now().strftime("%y%m%d %H:%M"), "Bl": [], "Pr": priority or (1 if task_type == "issue" else 2)},
+            parts={
+                "story": story, "tech": tech,
+                "criteria": "\n".join(f"- [ ] {c}" for c in criteria),
+                "plan": "\n".join(f"{i}. {p}" for i, p in enumerate(plan, 1)),
+                "repro": "\n".join(f"{i}. {r}" for i, r in enumerate(repro, 1)) if repro else None
+            }
         )
         try:
-            self._atomic_write(filepath, post)
-            self._append_log(filename, "Cr")
-            self._run_git(
-                [
-                    "add",
-                    os.path.join(STATE_FOLDERS["BACKLOG"], filename),
-                    os.path.join(LOGS_DIR, filename),
-                ],
-                cwd=self.tasks_path,
-            )
-            self._run_git(
-                ["commit", "-m", f"Add {task_type}: {title}"], cwd=self.tasks_path
-            )
-            self.log(f"Created: {filename}")
-            self.finish(
-                {"file": filename, "path": os.path.relpath(filepath, self.root)}
-            )
-        except Exception as e:
-            self.error(str(e))
+            self._atomic_write(task_dir, task)
+            self._append_log(task_id, "Cr")
+            self._run_git(["add", os.path.relpath(task_dir, self.tasks_path), os.path.join(LOGS_DIR, task_id)], cwd=self.tasks_path)
+            self._run_git(["commit", "-m", f"Add {task_type}: {title}"], cwd=self.tasks_path)
+            self.log(f"Created: {task_id}")
+            self.finish({"file": task_id, "path": os.path.relpath(task_dir, self.root)})
+        except Exception as e: self.error(str(e))
 
-    def find_task(self, filename):
-        if not filename.endswith(".md"):
-            filename += ".md"
-        for state, folder in STATE_FOLDERS.items():
-            filepath = os.path.join(self.tasks_path, folder, filename)
-            if os.path.exists(filepath):
-                return filepath, state
-        return None, None
+    def modify(self, filename, title=None, story=None, tech=None, criteria=None, plan=None, repro=None, notes=None, progress=None, findings=None, mitigations=None):
+        filepath, _ = self.find_task(filename)
+        if not filepath: self.error(f"Task {filename} not found.")
+        task = FM.load(filepath)
+        updated = False
+        if title:
+            if len(title) < 10: self.error("Title too vague.")
+            task.metadata["Ti"] = title
+            updated = True
+        if story: task.parts["story"] = story; updated = True
+        if tech: task.parts["tech"] = tech; updated = True
+        if criteria: task.parts["criteria"] = "\n".join(f"- [ ] {c}" for c in criteria); updated = True
+        if plan: task.parts["plan"] = "\n".join(f"{i}. {p}" for i, p in enumerate(plan, 1)); updated = True
+        if repro: task.parts["repro"] = "\n".join(f"{i}. {r}" for i, r in enumerate(repro, 1)); updated = True
+        
+        if notes or progress or findings or mitigations:
+            n = task.parts.get("notes", "- Progress: \n- Findings: \n- Mitigations: \n")
+            if notes: n = notes
+            if progress: n = re.sub(r"- Progress:.*", f"- Progress: {progress}", n)
+            if findings: n = re.sub(r"- Findings:.*", f"- Findings: {findings}", n)
+            if mitigations: n = re.sub(r"- Mitigations:.*", f"- Mitigations: {mitigations}", n)
+            task.parts["notes"] = n
+            updated = True
+
+        if updated:
+            self._atomic_write(filepath, task)
+            dump_path = os.path.join(self.tasks_path, CURRENT_TASK_FILENAME)
+            if os.path.exists(dump_path):
+                dump = FM.load(dump_path)
+                if dump.get("Task") == os.path.basename(filepath):
+                    dump.parts["content"] = task.parts.get("notes", "")
+                    self._atomic_write(dump_path, dump)
+            self._append_log(os.path.basename(filepath), "Mod")
+            self._run_git(["add", "--all"], cwd=self.tasks_path)
+            self._run_git(["commit", "-m", f"Mod {os.path.basename(filepath)}"], cwd=self.tasks_path)
+            self.log(f"Modified: {os.path.basename(filepath)}")
+        else: self.log("No changes.")
+        self.finish()
 
     def get_active_task(self, filename=None):
         if filename:
             filepath, _ = self.find_task(filename)
-            if filepath:
-                return filepath, FM.load(filepath)
+            if filepath: return filepath, FM.load(filepath)
             return None, None
         prog_dir = os.path.join(self.tasks_path, STATE_FOLDERS["PROGRESSING"])
         if os.path.exists(prog_dir):
-            files = [f for f in os.listdir(prog_dir) if f.endswith(".md")]
-            if files:
-                filepath = os.path.join(prog_dir, files[0])
+            dirs = [d for d in os.listdir(prog_dir) if os.path.isdir(os.path.join(prog_dir, d))]
+            if dirs:
+                filepath = os.path.join(prog_dir, dirs[0])
                 return filepath, FM.load(filepath)
         dump_path = os.path.join(self.tasks_path, CURRENT_TASK_FILENAME)
         if os.path.exists(dump_path):
-            try:
-                dump = FM.load(dump_path)
-                if dump.get("Task"):
-                    return self.get_active_task(dump.get("Task"))
-            except Exception:
-                pass
+            dump = FM.load(dump_path)
+            if dump.get("Task"): return self.get_active_task(dump.get("Task"))
         return None, None
 
     def checkpoint(self, filename=None):
-        filepath, post = self.get_active_task(filename)
-        if not filepath:
-            self.error("No active task found.")
+        filepath, task = self.get_active_task(filename)
+        if not filepath: self.error("No active task.")
         self.log(f"Checkpointing {os.path.basename(filepath)}...")
-        if self._sync_task_content(filepath, post):
-            self._atomic_write(filepath, post)
-            self._run_git(
-                ["add", os.path.relpath(filepath, self.tasks_path)], cwd=self.tasks_path
-            )
-            self._run_git(
-                ["commit", "-m", f"Cp: {os.path.basename(filepath)}"],
-                cwd=self.tasks_path,
-            )
+        if self._sync_task_content(filepath, task):
+            self._atomic_write(filepath, task)
+            self._run_git(["add", "--all"], cwd=self.tasks_path)
+            self._run_git(["commit", "-m", f"Cp: {os.path.basename(filepath)}"], cwd=self.tasks_path)
             self.log("Done.")
-            self.finish()
-        else:
-            self.log("No changes.")
-            self.finish()
+        else: self.log("No changes.")
+        self.finish()
 
-    def _sync_task_content(self, filepath, post, is_final=False):
+    def _sync_task_content(self, filepath, task, is_final=False):
         _, branch = self._parse_filename(os.path.basename(filepath))
         updated = False
-        res = self._run_git(
-            ["log", branch, f"^{self._get_default_branch()}", "--oneline"]
-        )
+        res = self._run_git(["log", branch, f"^{self._get_default_branch()}", "--oneline"])
         commits = res.stdout.strip() if res.returncode == 0 else ""
         if commits:
-            header = "## Final Commits" if is_final else "## Commits"
-            old_header = "## Commits" if is_final else "## Final Commits"
-            if is_final and old_header in post.content:
-                post.content = (
-                    re.sub(
-                        rf"{old_header}\n.*?(?=\n##|$)",
-                        "",
-                        post.content,
-                        flags=re.DOTALL,
-                    ).strip()
-                    + "\n"
-                )
-            if header not in post.content:
-                post.content = post.content.strip() + f"\n\n{header}\n"
-            pattern = rf"{header}\n.*?(?=\n##|$)"
-            if re.search(pattern, post.content, re.DOTALL):
-                post.content = re.sub(
-                    pattern, f"{header}\n{commits}", post.content, flags=re.DOTALL
-                )
-            else:
-                post.content = post.content.strip() + f"\n\n{header}\n{commits}\n"
+            task.parts["commits"] = commits
             updated = True
         dump_path = os.path.join(self.tasks_path, CURRENT_TASK_FILENAME)
         if os.path.exists(dump_path):
-            try:
-                dump = FM.load(dump_path)
-                if dump.get("Task") == os.path.basename(filepath):
-                    dump_content = dump.content.strip()
-                    if dump_content and "Progress:" in dump_content:
-                        if "## Notes" not in post.content:
-                            post.content = post.content.strip() + f"\n\n## Notes\n"
-                        pattern = r"## Notes\n.*?(?=\n##|$)"
-                        if re.search(pattern, post.content, re.DOTALL):
-                            post.content = re.sub(
-                                pattern,
-                                f"## Notes\n{dump_content}",
-                                post.content,
-                                flags=re.DOTALL,
-                            )
-                        else:
-                            post.content = (
-                                post.content.strip() + f"\n\n## Notes\n{dump_content}\n"
-                            )
-                        updated = True
-            except Exception:
-                pass
+            dump = FM.load(dump_path)
+            if dump.get("Task") == os.path.basename(filepath):
+                if dump.parts.get("content"):
+                    task.parts["notes"] = dump.parts["content"]
+                    updated = True
         return updated
 
     def _get_default_branch(self):
         for b in ["main", "master"]:
-            if self._run_git(["rev-parse", "--verify", b]).returncode == 0:
-                return b
+            if self._run_git(["rev-parse", "--verify", b]).returncode == 0: return b
         return "main"
 
     def link(self, filename, blocked_by_filename):
-        f1, _ = self.find_task(filename)
-        f2, _ = self.find_task(blocked_by_filename)
-        if not f1 or not f2:
-            self.error("Task or blocker not found.")
-        post = FM.load(f1)
-        bl = post.get("Bl", [])
+        f1, _ = self.find_task(filename); f2, _ = self.find_task(blocked_by_filename)
+        if not f1 or not f2: self.error("Not found.")
+        task = FM.load(f1); bl = task.get("Bl", [])
         b_name = os.path.basename(f2)
         if b_name not in bl:
-            bl.append(b_name)
-            post["Bl"] = bl
-            self._atomic_write(f1, post)
-            self._run_git(
-                ["add", os.path.relpath(f1, self.tasks_path)], cwd=self.tasks_path
-            )
-            self._run_git(
-                ["commit", "-m", f"Lk {filename}->{b_name}"], cwd=self.tasks_path
-            )
-            self.log(f"Linked: {filename} blocked by {b_name}")
+            bl.append(b_name); task["Bl"] = bl
+            self._atomic_write(f1, task)
+            self._run_git(["add", "--all"], cwd=self.tasks_path)
+            self._run_git(["commit", "-m", f"Lk {filename}->{b_name}"], cwd=self.tasks_path)
+            self.log(f"Linked: {filename} to {b_name}")
         self.finish()
 
     def move(self, filename, new_status):
-        self._move_logic(filename, new_status)
-        self.finish()
+        self._move_logic(filename, new_status); self.finish()
 
     def _move_logic(self, filename, new_status, force=False):
         new_status = new_status.upper()
         filepath, current_state = self.find_task(filename)
-        if not filepath:
-            self.error(f"Task {filename} not found.")
-        if current_state == new_status:
-            return
-        if new_status not in ALLOWED_TRANSITIONS.get(current_state, []):
+        if not filepath: self.error(f"Task {filename} not found.")
+        if current_state == new_status: return
+        if new_status not in ALLOWED_TRANSITIONS.get(current_state, []) and not force:
             self.error(f"Forbidden: {current_state}->{new_status}.")
-        post = FM.load(filepath)
+        task = FM.load(filepath)
         if new_status == "PROGRESSING":
-            for b in post.get("Bl", []):
+            for b in task.get("Bl", []):
                 _, bs = self.find_task(b)
-                if bs != "ARCHIVED":
-                    self.error(f"Blocked by {b} ({bs})")
-            prog_dir = os.path.join(self.tasks_path, STATE_FOLDERS["PROGRESSING"])
-            if os.path.exists(prog_dir) and [
-                f for f in os.listdir(prog_dir) if f.endswith(".md")
-            ]:
-                self.error("Busy with another task.")
-        self.log(f"Checkpointing {os.path.basename(filepath)}...")
-        self._sync_task_content(filepath, post, is_final=(new_status == "ARCHIVED"))
-        if (
-            new_status == "ARCHIVED"
-            and "## Final Commits" not in post.content
-            and not force
-        ):
-            self.error("No commits found for archival.")
-        post["St"] = new_status
+                if bs != "ARCHIVED": self.error(f"Blocked by {b}")
+        self._sync_task_content(filepath, task, is_final=(new_status == "ARCHIVED"))
+        task["St"] = new_status
         self._append_log(os.path.basename(filepath), f"{current_state}->{new_status}")
-        new_filepath = os.path.join(
-            self.tasks_path, STATE_FOLDERS[new_status], os.path.basename(filepath)
-        )
+        new_filepath = os.path.join(self.tasks_path, STATE_FOLDERS[new_status], os.path.basename(filepath))
         try:
-            self._atomic_write(new_filepath, post)
+            self._atomic_write(new_filepath, task)
             if os.path.exists(filepath):
-                os.remove(filepath)
+                if os.path.isdir(filepath): shutil.rmtree(filepath)
+                else: os.remove(filepath)
             self._run_git(["add", "--all"], cwd=self.tasks_path)
-            self._run_git(
-                [
-                    "commit",
-                    "-m",
-                    f"Mv {os.path.basename(filepath)}: {current_state}->{new_status}",
-                ],
-                cwd=self.tasks_path,
-            )
-            self.log(f"Moved: {current_state}->{new_status}")
+            self._run_git(["commit", "-m", f"Mv {os.path.basename(filepath)}: {current_state}->{new_status}"], cwd=self.tasks_path)
             dump_path = os.path.join(self.tasks_path, CURRENT_TASK_FILENAME)
             if new_status == "PROGRESSING":
-                self._atomic_write(
-                    dump_path,
-                    DUMP_TEMPLATE.format(task_file=os.path.basename(new_filepath)),
-                )
-            if new_status == "ARCHIVED" and os.path.exists(dump_path):
-                try:
-                    d = FM.load(dump_path)
-                    if d.get("Task") == os.path.basename(new_filepath):
-                        os.remove(dump_path)
-                except Exception:
-                    pass
-        except Exception as e:
-            self.error(str(e))
+                d = Task(metadata={"Task": os.path.basename(new_filepath)}, parts={"content": task.parts.get("notes", "- Progress: \n- Findings: \n- Mitigations: \n")})
+                self._atomic_write(dump_path, d)
+            elif new_status == "ARCHIVED" and os.path.exists(dump_path):
+                d = FM.load(dump_path)
+                if d.get("Task") == os.path.basename(new_filepath): os.remove(dump_path)
+        except Exception as e: self.error(str(e))
 
     def current(self, filename=None):
-        filepath, post = self.get_active_task(filename)
-        if not filepath:
-            self.error("No active task found.")
-        tn = os.path.basename(filepath)
-        tt, br = self._parse_filename(tn)
-        data = {
-            "file": os.path.relpath(filepath, self.root),
-            "name": tn,
-            "type": tt,
-            "branch": br,
-            "metadata": {KEY_MAP.get(k, k): v for k, v in post.metadata.items()},
-            "log_file": os.path.relpath(os.path.join(self.logs_path, tn), self.root),
-        }
+        filepath, task = self.get_active_task(filename)
+        if not filepath: self.error("No active task.")
+        tn = os.path.basename(filepath); tt, br = self._parse_filename(tn)
+        data = {"file": os.path.relpath(filepath, self.root), "name": tn, "type": tt, "branch": br, "metadata": {KEY_MAP.get(k, k): v for k, v in task.metadata.items()}, "log_file": os.path.relpath(os.path.join(self.logs_path, tn), self.root)}
         dp = os.path.join(self.tasks_path, CURRENT_TASK_FILENAME)
         if os.path.exists(dp):
-            try:
-                d = FM.load(dp)
-                if d.get("Task") == tn:
-                    data["dump"] = {
-                        "file": os.path.relpath(dp, self.root),
-                        "content": d.content.strip(),
-                    }
-            except Exception:
-                pass
-
+            d = FM.load(dp)
+            if d.get("Task") == tn: data["dump"] = {"file": os.path.relpath(dp, self.root), "content": d.parts.get("content", "").strip()}
         if not self.as_json:
-            title = data["metadata"].get("Title", data["name"])
-            print(
-                f"# TASK: {title}\n- **File**: `{data['file']}`\n- **Type**: {data['type']} | **Branch**: `{data['branch']}`"
-            )
+            print(f"# TASK: {data['metadata'].get('Title', data['name'])}\n- **File**: `{data['file']}`\n- **Type**: {data['type']} | **Branch**: `{data['branch']}`")
             for k, v in data["metadata"].items():
-                if k != "Title":
-                    print(f"- **{k}**: {v}")
-            print(f"- **Logs**: `{data['log_file']}`")
-            if "dump" in data:
-                print(
-                    f"\n## Active Progress (`{data['dump']['file']}`)\n{data['dump']['content']}"
-                )
-        else:
-            self.finish(data)
+                if k != "Title": print(f"- **{k}**: {v}")
+            if "dump" in data: print(f"\n## Active Progress\n{data['dump']['content']}")
+            else: print(f"\n## Content\n{task.content}")
+        else: self.finish(data)
 
     def list(self, show_all=False):
-        if not os.path.exists(self.tasks_path):
-            self.error("Init required.")
-        all_data = {}
+        if not os.path.exists(self.tasks_path): self.error("Init required.")
+        all_data = {}; seen = set()
         for state, folder in STATE_FOLDERS.items():
-            if state == "ARCHIVED" and not show_all:
-                continue
+            if state == "ARCHIVED" and not show_all: continue
             fp = os.path.join(self.tasks_path, folder)
-            if not os.path.exists(fp):
-                continue
-            files = [f for f in os.listdir(fp) if f.endswith(".md")]
-            if not files:
-                continue
-            tasks = []
-            for file in sorted(files):
-                try:
-                    with open(os.path.join(fp, file), "r", encoding="utf-8") as f:
-                        lines = f.readlines()
-                    cs = False
-                    summary = "No content"
-                    for l in lines:
-                        if l.strip() == "---":
-                            if not cs:
-                                cs = True
-                            else:
-                                cs = "CONTENT"
-                        elif cs == "CONTENT" and l.strip():
-                            summary = l.strip()
-                            break
-                    post = FM.load(os.path.join(fp, file))
-                    tt, tb = self._parse_filename(file)
-                    tasks.append(
-                        {
-                            "p": post.get("Pr", 9),
-                            "file": file,
-                            "type": tt,
-                            "branch": tb,
-                            "summary": summary[:60],
-                            "blocked_by": post.get("Bl", []),
-                        }
-                    )
-                except Exception:
-                    pass
-            tasks.sort(key=lambda x: (x["p"], x["file"]))
-            if tasks:
-                all_data[state] = tasks
-
-        if self.as_json:
-            self.finish(all_data)
+            if not os.path.exists(fp): continue
+            items = os.listdir(fp); tasks = []
+            for item in sorted(items):
+                if item == ".gitkeep" or item in seen: continue
+                seen.add(item)
+                path = os.path.join(fp, item)
+                task = FM.load(path); tt, tb = self._parse_filename(item)
+                tasks.append({"p": task.get("Pr", 9), "file": item, "type": tt, "branch": tb, "summary": task.metadata.get("Ti", "No Title")[:60], "blocked_by": task.get("Bl", [])})
+            if tasks: tasks.sort(key=lambda x: (x["p"], x["file"])); all_data[state] = tasks
+        if self.as_json: self.finish(all_data)
         else:
             for state, tasks in all_data.items():
-                print(
-                    f"\n### {state}\n| P | Summary | Type | Branch | Blocked By |\n|---|---------|------|--------|------------|"
-                )
-                for t in tasks:
-                    bl = ", ".join(t["blocked_by"]) if t["blocked_by"] else "-"
-                    print(
-                        f"| {t['p']} | {t['summary']} | {t['type']} | `{t['branch']}` | {bl} |"
-                    )
+                print(f"\n### {state}\n| P | Summary | Type | Branch | Blocked By |\n|---|---------|------|--------|------------|")
+                for t in tasks: print(f"| {t['p']} | {t['summary']} | {t['type']} | `{t['branch']}` | {', '.join(t['blocked_by']) if t['blocked_by'] else '-'} |")
             self.finish()
 
-    def _branch_exists_on_remote(self, branch):
-        result = self._run_git(["ls-remote", "--heads", "origin", branch])
-        return result.returncode == 0 and bool(result.stdout.strip())
-
-    def _get_task_branch(self, filepath):
-        with open(filepath, "r", encoding="utf-8") as f:
-            post = FM.load(filepath)
-        tn = os.path.basename(filepath)
-        tt, br = self._parse_filename(tn)
-        return br
-
     def reconcile(self, target=None):
-        if not target:
-            print("Usage: tasks-ai reconcile <task-id>")
-            print("       tasks-ai reconcile all")
-            return
-
-        if target == "all":
-            self._reconcile_all()
-        else:
-            self._reconcile_single(target)
+        if not target: print("Usage: tasks-ai reconcile <task-id>|all"); return
+        if target == "all": self._reconcile_all()
+        else: self._reconcile_single(target)
 
     def _reconcile_single(self, filename):
-        branch = self._get_task_branch_from_filename(filename)
-        if not branch:
-            self.error(f"Could not determine branch from filename: {filename}")
-
-        if self._branch_exists_on_remote(branch):
-            print(f"Branch '{branch}' still exists on remote. Skipping.")
-            return
-
-        print(f"Branch '{branch}' not found on remote.")
-        try:
-            response = input("Archive task? [y/N]: ").strip().lower()
-        except EOFError:
-            response = "n"
-        if response == "y":
-            self._archive_task(filename)
-            print(f"Archived {filename}")
-        else:
-            print("Cancelled.")
+        filepath, _ = self.find_task(filename)
+        if not filepath: self.error("Not found.")
+        _, branch = self._parse_filename(os.path.basename(filepath))
+        if self._run_git(["ls-remote", "--heads", "origin", branch]).stdout: return
+        if input(f"Archive {filename}? [y/N]: ").strip().lower() == "y":
+            self._move_logic(os.path.basename(filepath), "ARCHIVED", force=True)
 
     def _reconcile_all(self):
-        orphaned = []
+        orphans = []
         for state, folder in STATE_FOLDERS.items():
-            if state == "ARCHIVED":
-                continue
+            if state == "ARCHIVED": continue
             fp = os.path.join(self.tasks_path, folder)
-            if not os.path.exists(fp):
-                continue
-            for f in sorted(os.listdir(fp)):
-                if not f.endswith(".md"):
-                    continue
-                filepath = os.path.join(fp, f)
-                branch = self._get_task_branch(filepath)
-                if branch and not self._branch_exists_on_remote(branch):
-                    orphaned.append((f, state, branch))
-
-        if not orphaned:
-            print("No orphaned tasks found.")
-            return
-
-        print("Orphaned tasks (branch not on remote):")
-        for f, state, branch in orphaned:
-            print(f"  - {f} ({state}, branch: {branch})")
-
-        try:
-            response = input("\nArchive all? [y/N]: ").strip().lower()
-        except EOFError:
-            response = "n"
-        if response == "y":
-            for f, state, branch in orphaned:
-                self._archive_task(f)
-            print(f"Archived {len(orphaned)} tasks.")
-        else:
-            print("Cancelled.")
-
-    def _get_task_branch_from_filename(self, filename):
-        tt, br = self._parse_filename(filename)
-        return br
-
-    def _archive_task(self, filename):
-        self._move_logic(filename, "ARCHIVED", force=True)
-
+            if not os.path.exists(fp): continue
+            for item in os.listdir(fp):
+                if item == ".gitkeep": continue
+                filepath = os.path.join(fp, item); _, branch = self._parse_filename(item)
+                if not self._run_git(["ls-remote", "--heads", "origin", branch]).stdout: orphans.append(item)
+        if not orphans: print("No orphans."); return
+        for o in orphans: print(f"  - {o}")
+        if input("Archive all? [y/N]: ").strip().lower() == "y":
+            for o in orphans: self._move_logic(o, "ARCHIVED", force=True)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        prog="tasks-ai",
-        description="Tasks AI: An agent-optimized task manager for Git repositories.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=AGENT_GUIDANCE,
-        add_help=True,
-    )
-    parser.add_argument(
-        "-j",
-        "--json",
-        action="store_true",
-        help="Enable unbroken JSON output for AI agent integration.",
-    )
+    parser = argparse.ArgumentParser(prog="tasks-ai", description="Tasks AI: Agent-optimized, Git-backed task lifecycle manager.", formatter_class=argparse.RawDescriptionHelpFormatter, epilog=AGENT_GUIDANCE, add_help=True)
+    parser.add_argument("-j", "--json", action="store_true", help="JSON output.")
     subparsers = parser.add_subparsers(dest="command", required=True)
-    subparsers.add_parser(
-        "init",
-        help="Initialize the .tasks worktree and orphan branch. Required first step.",
-    )
-    list_p = subparsers.add_parser(
-        "list",
-        help="List active tasks sorted by priority. ARCHIVED is hidden by default.",
-    )
-    list_p.add_argument(
-        "--all", action="store_true", help="Include ARCHIVED tasks in the output."
-    )
-    cur_p = subparsers.add_parser(
-        "current",
-        help="Show full metadata, file paths, and active progress for a task.",
-    )
-    cur_p.add_argument(
-        "filename",
-        nargs="?",
-        help="Specific task filename (e.g. task_branch.md). Defaults to the task in PROGRESSING.",
-    )
-    cp_p = subparsers.add_parser(
-        "checkpoint",
-        help="Force-sync branch commits and current-task.md notes into the task file.",
-    )
-    cp_p.add_argument(
-        "filename",
-        nargs="?",
-        help="Task to checkpoint. Defaults to the one in PROGRESSING.",
-    )
-    lk_p = subparsers.add_parser(
-        "link", help="Establish a blocking dependency between tasks."
-    )
-    lk_p.add_argument("filename", help="The task being blocked.")
-    lk_p.add_argument("blocked_by", help="The task causing the blockage.")
-    cr_p = subparsers.add_parser(
-        "create",
-        help="Create a new task or issue in BACKLOG with mandatory requirement sections.",
-    )
-    cr_p.add_argument("title", help="Human-readable title of the task.")
-    cr_p.add_argument(
-        "--type",
-        default="task",
-        choices=["task", "issue"],
-        help="Item category. Issues default to Priority 1.",
-    )
-    cr_p.add_argument(
-        "--priority",
-        "-p",
-        type=int,
-        help="Override default priority (lower = higher priority).",
-    )
-    mv_p = subparsers.add_parser(
-        "move",
-        help="Transition a task to a new state. Enforces state machine and auto-syncs progress.",
-    )
-    mv_p.add_argument("filename", help="Task filename to move.")
-    mv_p.add_argument(
-        "status",
-        help="Target status: BACKLOG, READY, PROGRESSING, TESTING, REVIEW, STAGING, LIVE, BLOCKED, ARCHIVED.",
-    )
-    rec_p = subparsers.add_parser(
-        "reconcile",
-        help="Archive tasks whose branches no longer exist on remote.",
-    )
-    rec_p.add_argument(
-        "target",
-        nargs="?",
-        help="Task filename or 'all' to scan all tasks.",
-    )
-    args = parser.parse_args()
-    cli = TasksCLI(as_json=args.json)
-    if args.command == "init":
-        cli.init()
-    elif args.command == "create":
-        cli.create(args.title, args.type, args.priority)
-    elif args.command == "move":
-        cli.move(args.filename, args.status)
-    elif args.command == "list":
-        cli.list(show_all=args.all)
-    elif args.command == "current":
-        cli.current(args.filename)
-    elif args.command == "checkpoint":
-        cli.checkpoint(args.filename)
-    elif args.command == "link":
-        cli.link(args.filename, args.blocked_by)
-    elif args.command == "reconcile":
-        cli.reconcile(args.target)
+    subparsers.add_parser("init", help="Init tasks.")
+    list_p = subparsers.add_parser("list", help="List tasks."); list_p.add_argument("--all", action="store_true")
+    cur_p = subparsers.add_parser("current", help="Show active task."); cur_p.add_argument("filename", nargs="?")
+    cp_p = subparsers.add_parser("checkpoint", help="Sync commits/notes."); cp_p.add_argument("filename", nargs="?")
+    lk_p = subparsers.add_parser("link", help="Link tasks."); lk_p.add_argument("filename"); lk_p.add_argument("blocked_by")
+    cr_p = subparsers.add_parser("create", help="Create task."); cr_p.add_argument("title"); cr_p.add_argument("--type", default="task", choices=["task", "issue"]); cr_p.add_argument("--priority", "-p", type=int); cr_p.add_argument("--story"); cr_p.add_argument("--tech"); cr_p.add_argument("--criteria", nargs="+"); cr_p.add_argument("--plan", nargs="+"); cr_p.add_argument("--repro", nargs="+")
+    mod_p = subparsers.add_parser("modify", help="Update task."); mod_p.add_argument("filename"); mod_p.add_argument("--title"); mod_p.add_argument("--story"); mod_p.add_argument("--tech"); mod_p.add_argument("--criteria", nargs="+"); mod_p.add_argument("--plan", nargs="+"); mod_p.add_argument("--repro", nargs="+"); mod_p.add_argument("--notes"); mod_p.add_argument("--progress"); mod_p.add_argument("--findings"); mod_p.add_argument("--mitigations")
+    mv_p = subparsers.add_parser("move", help="Move task."); mv_p.add_argument("filename"); mv_p.add_argument("status")
+    rec_p = subparsers.add_parser("reconcile", help="Archive orphans."); rec_p.add_argument("target", nargs="?")
+    args = parser.parse_args(); cli = TasksCLI(as_json=args.json)
+    if args.command == "init": cli.init()
+    elif args.command == "create": cli.create(args.title, args.type, args.priority, story=args.story, tech=args.tech, criteria=args.criteria, plan=args.plan, repro=args.repro)
+    elif args.command == "modify": cli.modify(args.filename, title=args.title, story=args.story, tech=args.tech, criteria=args.criteria, plan=args.plan, repro=args.repro, notes=args.notes, progress=args.progress, findings=args.findings, mitigations=args.mitigations)
+    elif args.command == "move": cli.move(args.filename, args.status)
+    elif args.command == "list": cli.list(show_all=args.all)
+    elif args.command == "current": cli.current(args.filename)
+    elif args.command == "checkpoint": cli.checkpoint(args.filename)
+    elif args.command == "link": cli.link(args.filename, args.blocked_by)
+    elif args.command == "reconcile": cli.reconcile(args.target)
