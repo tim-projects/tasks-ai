@@ -249,6 +249,8 @@ class TasksCLI:
         if not name:
             return None, None
         task_id = name.rsplit(".", 1)[0]
+
+        # First try direct lookup by filename
         for state, folder in STATE_FOLDERS.items():
             dir_path = os.path.join(self.tasks_path, folder, task_id)
             if os.path.isdir(dir_path):
@@ -256,6 +258,21 @@ class TasksCLI:
             file_path = dir_path + ".md"
             if os.path.isfile(file_path):
                 return file_path, state
+
+        # If not found and looks like a numeric ID, search by metadata Id
+        if task_id.isdigit():
+            for state, folder in STATE_FOLDERS.items():
+                fp = os.path.join(self.tasks_path, folder)
+                if not os.path.exists(fp):
+                    continue
+                for item in os.listdir(fp):
+                    if item == ".gitkeep":
+                        continue
+                    path = os.path.join(fp, item)
+                    task = FM.load(path)
+                    if str(task.metadata.get("Id")) == task_id:
+                        return path, state
+
         return None, None
 
     def _get_next_id(self):
