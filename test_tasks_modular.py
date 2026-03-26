@@ -42,8 +42,8 @@ def test_create_and_modify(setup_tasks):
     filepath, state = cli.find_task(task_id)
     assert state == "BACKLOG"
     
-    cli.modify(task_id, title="Updated Valid Title")
-    filepath, _ = cli.find_task("task_updated-valid-title")
+    cli.modify(task_id, title="Updated Valid Task Title")
+    filepath, _ = cli.find_task(task_id) # The filename shouldn't change when title changes
     assert filepath is not None
 
 def test_move_and_delete(setup_tasks):
@@ -57,13 +57,14 @@ def test_move_and_delete(setup_tasks):
     assert state == "READY"
     
     # Test delete confirmation
-    # We can use a mock to intercept the finish call or just check metadata directly
     from tasks_ai.file_manager import FM
     path, _ = cli.find_task(task_id)
-    task = FM.load(path)
     
     # First call marks for deletion
-    cli.delete(task_id) 
+    try:
+        cli.delete(task_id)
+    except SystemExit:
+        pass
     
     # Reload to get DeleteCode
     task = FM.load(path)
