@@ -664,7 +664,10 @@ class TasksCLI:
             return
 
         print(f"Branch '{branch}' not found on remote.")
-        response = input("Archive task? [y/N]: ").strip().lower()
+        try:
+            response = input("Archive task? [y/N]: ").strip().lower()
+        except EOFError:
+            response = "n"
         if response == "y":
             self._archive_task(filename)
             print(f"Archived {filename}")
@@ -695,7 +698,10 @@ class TasksCLI:
         for f, state, branch in orphaned:
             print(f"  - {f} ({state}, branch: {branch})")
 
-        response = input("\nArchive all? [y/N]: ").strip().lower()
+        try:
+            response = input("\nArchive all? [y/N]: ").strip().lower()
+        except EOFError:
+            response = "n"
         if response == "y":
             for f, state, branch in orphaned:
                 self._archive_task(f)
