@@ -716,6 +716,42 @@ class TasksCLI:
                 _, bs = self.find_task(b)
                 if bs != "ARCHIVED":
                     self.error(f"Blocked by {b}. Blocker must be ARCHIVED first.")
+
+            missing = []
+            if (
+                not task.parts.get("story")
+                or len(task.parts.get("story", "").strip()) < 10
+            ):
+                missing.append("story")
+            if (
+                not task.parts.get("tech")
+                or len(task.parts.get("tech", "").strip()) < 10
+            ):
+                missing.append("tech")
+            if (
+                not task.parts.get("criteria")
+                or len(task.parts.get("criteria", "").strip()) < 10
+            ):
+                missing.append("criteria")
+            if (
+                not task.parts.get("plan")
+                or len(task.parts.get("plan", "").strip()) < 10
+            ):
+                missing.append("plan")
+
+            tt, _ = self._parse_filename(os.path.basename(filepath))
+            if tt == "issue":
+                if (
+                    not task.parts.get("repro")
+                    or len(task.parts.get("repro", "").strip()) < 10
+                ):
+                    missing.append("repro")
+
+            if missing:
+                self.error(
+                    f"Task lacks sufficient detail to move to PROGRESSING. Missing or incomplete: {', '.join(missing)}",
+                    hint='Use \'tasks-ai show <id>\' to see current content, then \'tasks-ai modify <id> --story "..." --tech "..." --criteria "..." --plan "..."\' to add proper details. For issues, also add --repro with reproduction steps.',
+                )
         self._sync_task_content(filepath, task, is_final=(new_status == "ARCHIVED"))
         task["St"] = new_status
         new_filepath = os.path.join(
