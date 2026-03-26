@@ -242,7 +242,7 @@ class TasksCLI:
                             break
                 if live_date and (now - live_date) > timedelta(days=7):
                     self.log(f"Auto-archiving: {file}")
-                    self._move_logic(file, "ARCHIVED")
+                    self._move_logic(file, "ARCHIVED", force=True)
 
     def init(self):
         branches = self._run_git(["branch"]).stdout
@@ -466,7 +466,7 @@ class TasksCLI:
         self._move_logic(filename, new_status)
         self.finish()
 
-    def _move_logic(self, filename, new_status):
+    def _move_logic(self, filename, new_status, force=False):
         new_status = new_status.upper()
         filepath, current_state = self.find_task(filename)
         if not filepath:
@@ -488,7 +488,11 @@ class TasksCLI:
                 self.error("Busy with another task.")
         self.log(f"Checkpointing {os.path.basename(filepath)}...")
         self._sync_task_content(filepath, post, is_final=(new_status == "ARCHIVED"))
-        if new_status == "ARCHIVED" and "## Final Commits" not in post.content:
+        if (
+            new_status == "ARCHIVED"
+            and "## Final Commits" not in post.content
+            and not force
+        ):
             self.error("No commits found for archival.")
         post["St"] = new_status
         self._append_log(os.path.basename(filepath), f"{current_state}->{new_status}")
@@ -628,6 +632,84 @@ class TasksCLI:
                     )
             self.finish()
 
+    def _branch_exists_on_remote(self, branch):
+        result = self._run_git(["ls-remote", "--heads", "origin", branch])
+        return result.returncode == 0 and bool(result.stdout.strip())
+
+    def _get_task_branch(self, filepath):
+        with open(filepath, "r", encoding="utf-8") as f:
+            post = FM.load(filepath)
+        tn = os.path.basename(filepath)
+        tt, br = self._parse_filename(tn)
+        return br
+
+    def reconcile(self, target=None):
+        if not target:
+            print("Usage: tasks-ai reconcile <task-id>")
+            print("       tasks-ai reconcile all")
+            return
+
+        if target == "all":
+            self._reconcile_all()
+        else:
+            self._reconcile_single(target)
+
+    def _reconcile_single(self, filename):
+        branch = self._get_task_branch_from_filename(filename)
+        if not branch:
+            self.error(f"Could not determine branch from filename: {filename}")
+
+        if self._branch_exists_on_remote(branch):
+            print(f"Branch '{branch}' still exists on remote. Skipping.")
+            return
+
+        print(f"Branch '{branch}' not found on remote.")
+        response = input("Archive task? [y/N]: ").strip().lower()
+        if response == "y":
+            self._archive_task(filename)
+            print(f"Archived {filename}")
+        else:
+            print("Cancelled.")
+
+    def _reconcile_all(self):
+        orphaned = []
+        for state, folder in STATE_FOLDERS.items():
+            if state == "ARCHIVED":
+                continue
+            fp = os.path.join(self.tasks_path, folder)
+            if not os.path.exists(fp):
+                continue
+            for f in sorted(os.listdir(fp)):
+                if not f.endswith(".md"):
+                    continue
+                filepath = os.path.join(fp, f)
+                branch = self._get_task_branch(filepath)
+                if branch and not self._branch_exists_on_remote(branch):
+                    orphaned.append((f, state, branch))
+
+        if not orphaned:
+            print("No orphaned tasks found.")
+            return
+
+        print("Orphaned tasks (branch not on remote):")
+        for f, state, branch in orphaned:
+            print(f"  - {f} ({state}, branch: {branch})")
+
+        response = input("\nArchive all? [y/N]: ").strip().lower()
+        if response == "y":
+            for f, state, branch in orphaned:
+                self._archive_task(f)
+            print(f"Archived {len(orphaned)} tasks.")
+        else:
+            print("Cancelled.")
+
+    def _get_task_branch_from_filename(self, filename):
+        tt, br = self._parse_filename(filename)
+        return br
+
+    def _archive_task(self, filename):
+        self._move_logic(filename, "ARCHIVED", force=True)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -704,6 +786,15 @@ if __name__ == "__main__":
         "status",
         help="Target status: BACKLOG, READY, PROGRESSING, TESTING, REVIEW, STAGING, LIVE, BLOCKED, ARCHIVED.",
     )
+    rec_p = subparsers.add_parser(
+        "reconcile",
+        help="Archive tasks whose branches no longer exist on remote.",
+    )
+    rec_p.add_argument(
+        "target",
+        nargs="?",
+        help="Task filename or 'all' to scan all tasks.",
+    )
     args = parser.parse_args()
     cli = TasksCLI(as_json=args.json)
     if args.command == "init":
@@ -720,3 +811,5 @@ if __name__ == "__main__":
         cli.checkpoint(args.filename)
     elif args.command == "link":
         cli.link(args.filename, args.blocked_by)
+    elif args.command == "reconcile":
+        cli.reconcile(args.target)
