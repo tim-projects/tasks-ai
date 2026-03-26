@@ -4,6 +4,7 @@ import subprocess
 import sys
 import tempfile
 import re
+import textwrap
 import json
 import shutil
 import random
@@ -812,11 +813,20 @@ class TasksCLI:
             for state, tasks in all_data.items():
                 print(f"\n{state}")
                 print("=" * 80)
+                print(f"{'#':>3} {'P':>2} {'Summary':<40} {'Type':<6} {'Branch':<20}")
+                print("-" * 80)
                 for t in tasks:
-                    print(f"[{t.get('id', '')}] P:{t['p']} {t['summary']}")
-                    print(f"    Type: {t['type']} | Branch: {t['branch']}")
-                    if t["blocked_by"]:
-                        print(f"    Blocked by: {', '.join(t['blocked_by'])}")
+                    lines = textwrap.wrap(t["summary"], width=40) or [""]
+                    first = True
+                    for line in lines:
+                        id_str = str(t.get("id", "")) if first else ""
+                        p_str = str(t["p"]) if first else ""
+                        type_str = t["type"] if first else ""
+                        branch_str = t["branch"][:20] if first else ""
+                        print(
+                            f"{id_str:>3} {p_str:>2} {line:<40} {type_str:<6} {branch_str:<20}"
+                        )
+                        first = False
             self.finish()
 
     def reconcile(self, target=None):
