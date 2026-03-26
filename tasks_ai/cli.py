@@ -324,7 +324,7 @@ class TasksCLI:
             self._run_git(
                 ["commit", "-m", f"Add {task_type}: {title}"], cwd=self.tasks_path
             )
-            self.log(f"Created: [{numeric_id}] {task_id} | {title}")
+            self.log(f"Created: [{numeric_id}] {task_type} | {title}")
             self.finish(
                 {
                     "id": numeric_id,
@@ -359,6 +359,7 @@ class TasksCLI:
             )
         task = FM.load(filepath)
         task_id = os.path.basename(filepath).rsplit(".", 1)[0]
+        tt, _ = self._parse_filename(os.path.basename(filepath))
         updated = False
         if title:
             if len(title) < 10:
@@ -408,7 +409,7 @@ class TasksCLI:
                 cwd=self.tasks_path,
             )
             self.log(
-                f"Modified: [{task.metadata.get('Id', '')}] {task_id} | {task.metadata.get('Ti', '')}"
+                f"Modified: [{task.metadata.get('Id', '')}] {tt} | {task.metadata.get('Ti', '')}"
             )
         else:
             self.log("No changes.")
@@ -426,6 +427,7 @@ class TasksCLI:
             self.error(f"Task '{filename}' not found.")
         task = FM.load(filepath)
         task_id = os.path.basename(filepath).rsplit(".", 1)[0]
+        tt, _ = self._parse_filename(os.path.basename(filepath))
 
         if not confirm:
             code = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
@@ -436,7 +438,7 @@ class TasksCLI:
                 ["commit", "-m", f"Mark {task_id} for deletion"], cwd=self.tasks_path
             )
             self.log(
-                f"Task '[{task.metadata.get('Id', '')}] {task_id} | {task.metadata.get('Ti', '')}' marked for deletion."
+                f"Task '[{task.metadata.get('Id', '')}] {tt} | {task.metadata.get('Ti', '')}' marked for deletion."
             )
             self.log(f"To confirm, run: tasks-ai delete {task_id} --confirm {code}")
             self.log("WARNING: Running any other command will revert this mark.")
@@ -463,7 +465,7 @@ class TasksCLI:
             self._run_git(["add", "--all"], cwd=self.tasks_path)
             self._run_git(["commit", "-m", f"Del {task_id}"], cwd=self.tasks_path)
             self.log(
-                f"Deleted: [{task.metadata.get('Id', '')}] {task_id} | {task.metadata.get('Ti', '')}"
+                f"Deleted: [{task.metadata.get('Id', '')}] {tt} | {task.metadata.get('Ti', '')}"
             )
         except Exception as e:
             self.error(str(e))
@@ -542,11 +544,13 @@ class TasksCLI:
         task = FM.load(f1)
         task_title = task.metadata.get("Ti", "")
         task_id_num = task.metadata.get("Id", "")
+        tt, _ = self._parse_filename(os.path.basename(f1))
         bl = task.get("Bl", [])
         b_name = os.path.basename(f2)
         b_task = FM.load(f2)
         b_title = b_task.metadata.get("Ti", "")
         b_id = b_task.metadata.get("Id", "")
+        b_tt, _ = self._parse_filename(os.path.basename(f2))
         if b_name not in bl:
             bl.append(b_name)
             task["Bl"] = bl
@@ -556,7 +560,7 @@ class TasksCLI:
                 ["commit", "-m", f"Lk {filename}->{b_name}"], cwd=self.tasks_path
             )
             self.log(
-                f"Linked: [{task_id_num}] {filename} | {task_title} -> [{b_id}] {b_name} | {b_title}"
+                f"Linked: [{task_id_num}] {tt} | {task_title} -> [{b_id}] {b_tt} | {b_title}"
             )
         self.finish(
             {
@@ -579,8 +583,9 @@ class TasksCLI:
         task = FM.load(filepath)
         title = task.metadata.get("Ti", "")
         task_id_num = task.metadata.get("Id", "")
+        tt, _ = self._parse_filename(os.path.basename(filepath))
         self._move_logic(filename, new_status)
-        self.log(f"Moved: [{task_id_num}] {task_id} | {title} -> {new_status}")
+        self.log(f"Moved: [{task_id_num}] {tt} | {title} -> {new_status}")
         self.finish(
             {
                 "id": task_id_num,
