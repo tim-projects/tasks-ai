@@ -215,6 +215,10 @@ class TasksCLI:
             with open(gitignore_path, "w") as f:
                 f.write(f"{ignore_line}\n")
         self.log("Tasks initialized.")
+        self.log(
+            'Tip: Create a task with: tasks-ai create "Your task title" --story "As a user..." --tech "..." --criteria "..." --plan "1. ..."'
+        )
+        self.log("Use -j for JSON output. Run 'list' to see all tasks with their Ids.")
         self.finish()
 
     def _append_log(self, task_path, entry):
@@ -282,9 +286,12 @@ class TasksCLI:
         if task_type == "issue" and not repro:
             missing.append("--repro")
         if missing:
-            self.error(
-                f"Missing required parameters: {', '.join(missing)}",
-                hint="Tasks require --story, --tech, --criteria, and --plan. Issues also require --repro.",
+            self.log(
+                f"Note: Missing optional parameters: {', '.join(missing)}. Task created but consider adding these later."
+            )
+        else:
+            self.log(
+                "Tip: Use --priority for high-priority tasks, --type issue for bugs."
             )
 
         clean_title = "".join(c if c.isalnum() else "-" for c in title.lower()).strip(
@@ -411,6 +418,14 @@ class TasksCLI:
             self.log(
                 f"Modified: [{task.metadata.get('Id', '')}] {tt} | {task.metadata.get('Ti', '')}"
             )
+            if not task.parts.get("story"):
+                self.log("Tip: Consider adding --story to document the user context.")
+            elif not task.parts.get("tech"):
+                self.log("Tip: Consider adding --tech for technical background.")
+            elif not task.parts.get("criteria"):
+                self.log("Tip: Consider adding --criteria for acceptance criteria.")
+            elif not task.parts.get("plan"):
+                self.log("Tip: Consider adding --plan for implementation steps.")
         else:
             self.log("No changes.")
         self.finish(
