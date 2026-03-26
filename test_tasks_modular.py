@@ -32,24 +32,24 @@ def setup_tasks():
 def test_create_and_modify(setup_tasks):
     cli = setup_tasks
     cli.create(
-        "New Task Title", 
+        "Valid Task Title", 
         story="As a user...", 
         tech="Python", 
         criteria=["Pass"], 
         plan=["Step 1"]
     )
-    task_id = "task_new-task-title"
+    task_id = "task_valid-task-title"
     filepath, state = cli.find_task(task_id)
     assert state == "BACKLOG"
     
-    cli.modify(task_id, title="Updated Title Longer")
-    filepath, _ = cli.find_task("task_updated-title-longer")
+    cli.modify(task_id, title="Updated Valid Title")
+    filepath, _ = cli.find_task("task_updated-valid-title")
     assert filepath is not None
 
 def test_move_and_delete(setup_tasks):
     cli = setup_tasks
-    cli.create("Move Test Task", story="S", tech="T", criteria=["C"], plan=["P"])
-    task_id = "task_move-test-task"
+    cli.create("Move Test Task Name", story="S", tech="T", criteria=["C"], plan=["P"])
+    task_id = "task_move-test-task-name"
     
     # Move through states
     cli.move(task_id, "READY")
@@ -57,12 +57,15 @@ def test_move_and_delete(setup_tasks):
     assert state == "READY"
     
     # Test delete confirmation
-    res = cli.delete(task_id) # Returns None, prints code
-    # How to capture output?
-    
-    # We need to check if marked
+    # We can use a mock to intercept the finish call or just check metadata directly
     from tasks_ai.file_manager import FM
     path, _ = cli.find_task(task_id)
+    task = FM.load(path)
+    
+    # First call marks for deletion
+    cli.delete(task_id) 
+    
+    # Reload to get DeleteCode
     task = FM.load(path)
     assert "DeleteCode" in task.metadata
     
@@ -73,14 +76,14 @@ def test_move_and_delete(setup_tasks):
 
 def test_link_tasks(setup_tasks):
     cli = setup_tasks
-    cli.create("Task A", story="S", tech="T", criteria=["C"], plan=["P"])
-    cli.create("Task B", story="S", tech="T", criteria=["C"], plan=["P"])
-    cli.link("task_task-a", "task_task-b")
+    cli.create("Task A Title Long", story="S", tech="T", criteria=["C"], plan=["P"])
+    cli.create("Task B Title Long", story="S", tech="T", criteria=["C"], plan=["P"])
+    cli.link("task_task-a-title-long", "task_task-b-title-long")
     
     from tasks_ai.file_manager import FM
-    path, _ = cli.find_task("task_task-a")
+    path, _ = cli.find_task("task_task-a-title-long")
     task = FM.load(path)
-    assert "task_task-b" in task["Bl"]
+    assert "task_task-b-title-long" in task["Bl"]
 
 def test_reconcile(setup_tasks):
     # This is complex due to git dependency.
