@@ -245,6 +245,18 @@ class TasksCLI:
                 return file_path, state
         return None, None
 
+    def _get_next_id(self):
+        counter_file = os.path.join(self.tasks_path, ".task_counter")
+        if os.path.exists(counter_file):
+            with open(counter_file, "r") as f:
+                current = int(f.read().strip())
+        else:
+            current = 0
+        current += 1
+        with open(counter_file, "w") as f:
+            f.write(str(current))
+        return current
+
     def create(
         self,
         title,
@@ -279,12 +291,14 @@ class TasksCLI:
             "-"
         )
         task_id = f"{task_type}_{clean_title[:30]}"
+        numeric_id = self._get_next_id()
         task_dir = os.path.join(self.tasks_path, STATE_FOLDERS["BACKLOG"], task_id)
         if self.find_task(task_id)[0]:
             self.error(f"Task {task_id} exists.")
 
         task = Task(
             metadata={
+                "Id": numeric_id,
                 "Ti": title,
                 "St": "BACKLOG",
                 "Cr": datetime.now().strftime("%y%m%d %H:%M"),
@@ -310,9 +324,10 @@ class TasksCLI:
             self._run_git(
                 ["commit", "-m", f"Add {task_type}: {title}"], cwd=self.tasks_path
             )
-            self.log(f"Created: {task_id} | {title}")
+            self.log(f"Created: [{numeric_id}] {task_id} | {title}")
             self.finish(
                 {
+                    "id": numeric_id,
                     "task_id": task_id,
                     "title": title,
                     "file": task_id,
@@ -392,10 +407,18 @@ class TasksCLI:
                 ["commit", "-m", f"Mod {os.path.basename(filepath)}"],
                 cwd=self.tasks_path,
             )
-            self.log(f"Modified: {task_id} | {task.metadata.get('Ti', '')}")
+            self.log(
+                f"Modified: [{task.metadata.get('Id', '')}] {task_id} | {task.metadata.get('Ti', '')}"
+            )
         else:
             self.log("No changes.")
-        self.finish({"task_id": task_id, "title": task.metadata.get("Ti", "")})
+        self.finish(
+            {
+                "id": task.metadata.get("Id"),
+                "task_id": task_id,
+                "title": task.metadata.get("Ti", ""),
+            }
+        )
 
     def delete(self, filename, confirm=None):
         filepath, _ = self.find_task(filename)
@@ -413,12 +436,13 @@ class TasksCLI:
                 ["commit", "-m", f"Mark {task_id} for deletion"], cwd=self.tasks_path
             )
             self.log(
-                f"Task '{task_id} | {task.metadata.get('Ti', '')}' marked for deletion."
+                f"Task '[{task.metadata.get('Id', '')}] {task_id} | {task.metadata.get('Ti', '')}' marked for deletion."
             )
             self.log(f"To confirm, run: tasks-ai delete {task_id} --confirm {code}")
             self.log("WARNING: Running any other command will revert this mark.")
             self.finish(
                 {
+                    "id": task.metadata.get("Id"),
                     "task_id": task_id,
                     "title": task.metadata.get("Ti", ""),
                     "delete_code": code,
@@ -438,10 +462,18 @@ class TasksCLI:
                 os.remove(filepath)
             self._run_git(["add", "--all"], cwd=self.tasks_path)
             self._run_git(["commit", "-m", f"Del {task_id}"], cwd=self.tasks_path)
-            self.log(f"Deleted: {task_id} | {task.metadata.get('Ti', '')}")
+            self.log(
+                f"Deleted: [{task.metadata.get('Id', '')}] {task_id} | {task.metadata.get('Ti', '')}"
+            )
         except Exception as e:
             self.error(str(e))
-        self.finish({"task_id": task_id, "title": task.metadata.get("Ti", "")})
+        self.finish(
+            {
+                "id": task.metadata.get("Id"),
+                "task_id": task_id,
+                "title": task.metadata.get("Ti", ""),
+            }
+        )
 
     def get_active_task(self, filename=None):
         if filename:
@@ -509,10 +541,12 @@ class TasksCLI:
             self.error("Not found.")
         task = FM.load(f1)
         task_title = task.metadata.get("Ti", "")
+        task_id_num = task.metadata.get("Id", "")
         bl = task.get("Bl", [])
         b_name = os.path.basename(f2)
         b_task = FM.load(f2)
         b_title = b_task.metadata.get("Ti", "")
+        b_id = b_task.metadata.get("Id", "")
         if b_name not in bl:
             bl.append(b_name)
             task["Bl"] = bl
@@ -521,9 +555,12 @@ class TasksCLI:
             self._run_git(
                 ["commit", "-m", f"Lk {filename}->{b_name}"], cwd=self.tasks_path
             )
-            self.log(f"Linked: {filename} | {task_title} -> {b_name} | {b_title}")
+            self.log(
+                f"Linked: [{task_id_num}] {filename} | {task_title} -> [{b_id}] {b_name} | {b_title}"
+            )
         self.finish(
             {
+                "id": task_id_num,
                 "task_id": filename,
                 "title": task_title,
                 "linked_to": b_name,
@@ -541,9 +578,17 @@ class TasksCLI:
         task_id = os.path.basename(filepath).rsplit(".", 1)[0]
         task = FM.load(filepath)
         title = task.metadata.get("Ti", "")
+        task_id_num = task.metadata.get("Id", "")
         self._move_logic(filename, new_status)
-        self.log(f"Moved: {task_id} | {title} -> {new_status}")
-        self.finish({"task_id": task_id, "title": title, "status": new_status})
+        self.log(f"Moved: [{task_id_num}] {task_id} | {title} -> {new_status}")
+        self.finish(
+            {
+                "id": task_id_num,
+                "task_id": task_id,
+                "title": title,
+                "status": new_status,
+            }
+        )
 
     def _move_logic(self, filename, new_status, force=False):
         new_status = new_status.upper()
