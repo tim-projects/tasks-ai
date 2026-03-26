@@ -13,6 +13,14 @@ import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
+
+def get_terminal_width():
+    try:
+        return os.get_terminal_size().columns
+    except OSError:
+        return 80
+
+
 from .constants import (
     TASKS_DIR,
     TASKS_BRANCH,
@@ -810,14 +818,24 @@ class TasksCLI:
         if self.as_json:
             self.finish(all_data)
         else:
+            term_width = get_terminal_width()
+            summary_width = max(30, term_width - 45)
+            branch_width = max(15, term_width - summary_width - 30)
+
             for state, tasks in all_data.items():
                 print(f"\n{state}")
-                print("=" * 80)
-                print(f"{'#':>3} {'P':>2} {'Summary':<40} {'Type':<6} {'Branch':<20}")
-                print("-" * 80)
+                print("=" * term_width)
+                print(
+                    f"{'#':>3} {'P':>2} {'Summary':<{summary_width}} {'Type':<6} {'Branch':<{branch_width}}"
+                )
+                print("-" * term_width)
                 for t in tasks:
-                    summary_lines = textwrap.wrap(t["summary"], width=40) or [""]
-                    branch_lines = textwrap.wrap(t["branch"], width=20) or [""]
+                    summary_lines = textwrap.wrap(
+                        t["summary"], width=summary_width
+                    ) or [""]
+                    branch_lines = textwrap.wrap(t["branch"], width=branch_width) or [
+                        ""
+                    ]
                     max_lines = max(len(summary_lines), len(branch_lines))
                     for i in range(max_lines):
                         id_str = str(t.get("id", "")) if i == 0 else ""
@@ -826,7 +844,7 @@ class TasksCLI:
                         type_str = t["type"] if i == 0 else ""
                         b_line = branch_lines[i] if i < len(branch_lines) else ""
                         print(
-                            f"{id_str:>3} {p_str:>2} {s_line:<40} {type_str:<6} {b_line:<20}"
+                            f"{id_str:>3} {p_str:>2} {s_line:<{summary_width}} {type_str:<6} {b_line:<{branch_width}}"
                         )
             self.finish()
 
