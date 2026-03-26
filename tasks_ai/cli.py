@@ -148,7 +148,15 @@ class TasksCLI:
             self._run_git(["reset", "--hard"])
             self._run_git(["commit", "--allow-empty", "-m", "Initial tasks commit"])
             self._run_git(["checkout", "-"])
-        if not os.path.exists(self.tasks_path):
+        is_worktree = False
+        if os.path.exists(self.tasks_path):
+            wt_res = self._run_git(["worktree", "list", "--porcelain"])
+            if self.tasks_path in wt_res.stdout:
+                is_worktree = True
+        if not is_worktree:
+            if os.path.exists(self.tasks_path):
+                if os.path.isdir(self.tasks_path): shutil.rmtree(self.tasks_path)
+                else: os.remove(self.tasks_path)
             self._run_git(["worktree", "add", TASKS_DIR, TASKS_BRANCH])
         for folder in list(STATE_FOLDERS.values()):
             p = os.path.join(self.tasks_path, folder)
