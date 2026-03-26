@@ -153,6 +153,7 @@ class TasksCLI:
             wt_res = self._run_git(["worktree", "list", "--porcelain"])
             if self.tasks_path in wt_res.stdout:
                 is_worktree = True
+        
         if not is_worktree:
             if os.path.exists(self.tasks_path):
                 if os.path.isdir(self.tasks_path): shutil.rmtree(self.tasks_path)
