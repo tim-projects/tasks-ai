@@ -310,10 +310,11 @@ class TasksCLI:
             self._run_git(
                 ["commit", "-m", f"Add {task_type}: {title}"], cwd=self.tasks_path
             )
-            self.log(f"Created: {task_id}")
+            self.log(f"Created: {task_id} | {title}")
             self.finish(
                 {
                     "task_id": task_id,
+                    "title": title,
                     "file": task_id,
                     "path": os.path.relpath(task_dir, self.root),
                 }
@@ -520,9 +521,11 @@ class TasksCLI:
                 hint="Use 'tasks-ai list' to see all available task filenames/IDs.",
             )
         task_id = os.path.basename(filepath).rsplit(".", 1)[0]
+        task = FM.load(filepath)
+        title = task.metadata.get("Ti", "")
         self._move_logic(filename, new_status)
-        self.log(f"Moved: {task_id} -> {new_status}")
-        self.finish({"task_id": task_id, "status": new_status})
+        self.log(f"Moved: {task_id} | {title} -> {new_status}")
+        self.finish({"task_id": task_id, "title": title, "status": new_status})
 
     def _move_logic(self, filename, new_status, force=False):
         new_status = new_status.upper()
