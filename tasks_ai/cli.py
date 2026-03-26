@@ -833,9 +833,16 @@ class TasksCLI:
                     summary_lines = textwrap.wrap(
                         t["summary"], width=summary_width
                     ) or [""]
-                    branch_lines = textwrap.wrap(
-                        t["branch"], width=branch_width, break_on_hyphens=False
-                    ) or [""]
+
+                    def simple_wrap(text, width):
+                        result = []
+                        while len(text) > width:
+                            result.append(text[:width])
+                            text = text[width:]
+                        result.append(text)
+                        return result
+
+                    branch_lines = simple_wrap(t["branch"], branch_width) or [""]
                     max_lines = max(len(summary_lines), len(branch_lines))
                     for i in range(max_lines):
                         id_str = str(t.get("id", "")) if i == 0 else ""
