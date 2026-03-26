@@ -736,11 +736,11 @@ class TasksCLI:
         else:
             for state, tasks in all_data.items():
                 print(
-                    f"\n### {state}\n| P | Summary | Type | Branch | Blocked By |\n|---|---------|------|--------|------------|"
+                    f"\n### {state}\n| # | P | Summary | Type | Branch | Blocked By |\n|---|---|---------|------|--------|------------|"
                 )
                 for t in tasks:
                     print(
-                        f"| {t['p']} | {t['summary']} | {t['type']} | `{t['branch']}` | {', '.join(t['blocked_by']) if t['blocked_by'] else '-'} |"
+                        f"| {t.get('id', '')} | {t['p']} | {t['summary']} | {t['type']} | `{t['branch']}` | {', '.join(t['blocked_by']) if t['blocked_by'] else '-'} |"
                     )
             self.finish()
 
