@@ -10,6 +10,7 @@ import shutil
 import random
 import string
 import uuid
+import fcntl
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -62,7 +63,10 @@ class TasksCLI:
                     updated = True
         if updated:
             self._run_git(["add", "--all"], cwd=self.tasks_path)
-            self._run_git(["commit", "-m", "Clear delete marks"], cwd=self.tasks_path)
+            self._run_git(
+                ["commit", "--allow-empty", "-m", "Clear delete marks"],
+                cwd=self.tasks_path,
+            )
 
     def _get_git_root(self):
         try:
@@ -86,7 +90,7 @@ class TasksCLI:
         if "-" in name_part:
             parts = name_part.split("-", 2)
             if len(parts) >= 3:
-                return parts[1], parts[2] if len(parts) > 2 else parts[1]
+                return parts[1], name_part
         if "_" in name_part:
             return name_part.split("_", 1)
         return "task", name_part
@@ -169,7 +173,7 @@ class TasksCLI:
             filepath = os.path.join(task_path, filename)
             with open(filepath, "r", encoding="utf-8") as f:
                 content = f.read()
-            if re.search(r"- \[\s*\]", content):
+            if re.search(r"^- \[ \]", content, re.MULTILINE):
                 return True
         return False
 
@@ -202,7 +206,7 @@ class TasksCLI:
                         )
                         continue
                     self.log(f"Auto-archiving: {folder}")
-                    self._move_logic(folder, "ARCHIVED", force=True)
+                    self._move_logic(folder, "ARCHIVED", force=True, yes=False)
 
     def init(self):
         branches = self._run_git(["branch"]).stdout
@@ -234,7 +238,21 @@ class TasksCLI:
                 )
         st = self._run_git(["status", "--porcelain"], cwd=self.tasks_path)
         if st.stdout:
-            self._run_git(["commit", "-m", "Init tasks folders"], cwd=self.tasks_path)
+            self._run_git(
+                ["commit", "--allow-empty", "-m", "Init tasks folders"],
+                cwd=self.tasks_path,
+            )
+
+        counter_file = os.path.join(self.tasks_path, ".task_counter")
+        if not os.path.exists(counter_file):
+            with open(counter_file, "w") as f:
+                f.write("0")
+            self._run_git(["add", ".task_counter"], cwd=self.tasks_path)
+            self._run_git(
+                ["commit", "--allow-empty", "-m", "Init task counter"],
+                cwd=self.tasks_path,
+            )
+
         gitignore_path = os.path.join(self.root, ".gitignore")
         ignore_line = f"{TASKS_DIR}/"
         if os.path.exists(gitignore_path):
@@ -300,14 +318,21 @@ class TasksCLI:
 
     def _get_next_id(self):
         counter_file = os.path.join(self.tasks_path, ".task_counter")
-        if os.path.exists(counter_file):
-            with open(counter_file, "r") as f:
+        with open(counter_file, "r+") as f:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            try:
                 current = int(f.read().strip())
-        else:
-            current = 0
-        current += 1
-        with open(counter_file, "w") as f:
-            f.write(str(current))
+                current += 1
+                f.seek(0)
+                f.truncate()
+                f.write(str(current))
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+        self._run_git(["add", ".task_counter"], cwd=self.tasks_path)
+        self._run_git(
+            ["commit", "--allow-empty", "-m", f"Bump task counter to {current}"],
+            cwd=self.tasks_path,
+        )
         return current
 
     def create(
@@ -392,7 +417,8 @@ class TasksCLI:
                 ["add", os.path.relpath(task_dir, self.tasks_path)], cwd=self.tasks_path
             )
             self._run_git(
-                ["commit", "-m", f"Add {task_type}: {title}"], cwd=self.tasks_path
+                ["commit", "--allow-empty", "-m", f"Add {task_type}: {title}"],
+                cwd=self.tasks_path,
             )
             self._run_git(["checkout", "-b", task_id], cwd=self.root)
             self.log(f"Created: [{numeric_id}] {task_type} | {title}")
@@ -476,7 +502,7 @@ class TasksCLI:
             self._append_log(filepath, "Mod")
             self._run_git(["add", "--all"], cwd=self.tasks_path)
             self._run_git(
-                ["commit", "-m", f"Mod {os.path.basename(filepath)}"],
+                ["commit", "--allow-empty", "-m", f"Mod {os.path.basename(filepath)}"],
                 cwd=self.tasks_path,
             )
             self.log(
@@ -517,7 +543,8 @@ class TasksCLI:
             self._atomic_write(filepath, task)
             self._run_git(["add", "--all"], cwd=self.tasks_path)
             self._run_git(
-                ["commit", "-m", f"Mark {task_id} for deletion"], cwd=self.tasks_path
+                ["commit", "--allow-empty", "-m", f"Mark {task_id} for deletion"],
+                cwd=self.tasks_path,
             )
             self.log(
                 f"Task '[{task.metadata.get('Id', '')}] {tt} | {task.metadata.get('Ti', '')}' marked for deletion."
@@ -545,7 +572,9 @@ class TasksCLI:
             else:
                 os.remove(filepath)
             self._run_git(["add", "--all"], cwd=self.tasks_path)
-            self._run_git(["commit", "-m", f"Del {task_id}"], cwd=self.tasks_path)
+            self._run_git(
+                ["commit", "--allow-empty", "-m", f"Del {task_id}"], cwd=self.tasks_path
+            )
             self.log(
                 f"Deleted: [{task.metadata.get('Id', '')}] {tt} | {task.metadata.get('Ti', '')}"
             )
@@ -586,7 +615,7 @@ class TasksCLI:
             self._atomic_write(filepath, task)
             self._run_git(["add", "--all"], cwd=self.tasks_path)
             self._run_git(
-                ["commit", "-m", f"Cp: {os.path.basename(filepath)}"],
+                ["commit", "--allow-empty", "-m", f"Cp: {os.path.basename(filepath)}"],
                 cwd=self.tasks_path,
             )
             self.log("Done.")
@@ -639,7 +668,8 @@ class TasksCLI:
             self._atomic_write(f1, task)
             self._run_git(["add", "--all"], cwd=self.tasks_path)
             self._run_git(
-                ["commit", "-m", f"Lk {filename}->{b_name}"], cwd=self.tasks_path
+                ["commit", "--allow-empty", "-m", f"Lk {filename}->{b_name}"],
+                cwd=self.tasks_path,
             )
             self.log(
                 f"Linked: [{task_id_num}] {tt} | {task_title} -> [{b_id}] {b_tt} | {b_title}"
@@ -654,7 +684,7 @@ class TasksCLI:
             }
         )
 
-    def move(self, filename, new_status):
+    def move(self, filename, new_status, yes=False):
         filepath, _ = self.find_task(filename)
         if not filepath:
             self.error(
@@ -705,7 +735,7 @@ class TasksCLI:
                 }
             )
         else:
-            self._move_logic(filename, new_status)
+            self._move_logic(filename, new_status, yes=yes)
             self.log(f"Moved: [{task_id_num}] {tt} | {title} -> {new_status}")
             self.finish(
                 {
@@ -732,7 +762,7 @@ class TasksCLI:
         self._append_log(new_filepath, f"{current_state}->{new_status}")
         return task
 
-    def _move_logic(self, filename, new_status, force=False):
+    def _move_logic(self, filename, new_status, force=False, yes=False):
         new_status = new_status.upper()
         filepath, current_state = self.find_task(filename)
         if not filepath:
@@ -749,6 +779,9 @@ class TasksCLI:
             )
         task = FM.load(filepath)
         tt, branch = self._parse_filename(os.path.basename(filepath))
+        task_id_num = task.metadata.get("Id", "")
+        task_id = os.path.basename(filepath).rsplit(".", 1)[0]
+        title = task.metadata.get("Ti", "")
 
         def _has_complete_content(t, fn):
             if not t.parts.get("story") or len(t.parts.get("story", "").strip()) < 10:
@@ -849,41 +882,75 @@ class TasksCLI:
                 )
 
         tt, branch = self._parse_filename(os.path.basename(filepath))
+        # Resolve branch to SHA if it exists
+        branch_sha = self._run_git(["rev-parse", branch]).stdout.strip()
+        if not branch_sha:
+            # Try to find it in reflog or by name in commits
+            res = self._run_git(["log", "-1", "--format=%H", branch])
+            if res.returncode == 0:
+                branch_sha = res.stdout.strip()
 
-        if new_status in ("REVIEW", "ARCHIVED"):
-            if not self._run_git(["ls-remote", "--heads", "origin", branch]).stdout:
-                self.error(
-                    f"Branch '{branch}' not pushed to remote. Push and try again."
-                )
+        if not force:
+            has_origin = self._run_git(["remote", "get-url", "origin"]).returncode == 0
+            if new_status in ("REVIEW", "ARCHIVED"):
+                if has_origin:
+                    if not self._run_git(
+                        ["ls-remote", "--heads", "origin", branch]
+                    ).stdout:
+                        self.error(
+                            f"Branch '{branch}' not pushed to remote. Push and try again."
+                        )
 
-        if new_status == "REVIEW":
-            merge_base = self._run_git(["merge-base", branch, "testing"]).stdout.strip()
-            testing_sha = (
-                self._run_git(["rev-parse", "testing"]).stdout.strip()
-                if self._run_git(["rev-parse", "--verify", "testing"]).returncode == 0
-                else None
-            )
-            if not testing_sha or merge_base != testing_sha:
-                self.error(
-                    f"Branch '{branch}' not merged to testing. Merge to testing first."
+            if new_status == "REVIEW":
+                merge_base = self._run_git(
+                    ["merge-base", branch_sha or branch, "testing"]
+                ).stdout.strip()
+                testing_sha = (
+                    self._run_git(["rev-parse", "testing"]).stdout.strip()
+                    if self._run_git(["rev-parse", "--verify", "testing"]).returncode
+                    == 0
+                    else None
                 )
+                if not testing_sha or merge_base != testing_sha:
+                    self.error(
+                        f"Branch '{branch}' not merged to testing. Merge to testing first."
+                    )
 
-        if new_status == "ARCHIVED":
-            merge_base = self._run_git(["merge-base", branch, "testing"]).stdout.strip()
-            testing_sha = (
-                self._run_git(["rev-parse", "testing"]).stdout.strip()
-                if self._run_git(["rev-parse", "--verify", "testing"]).returncode == 0
-                else None
-            )
-            if not testing_sha or merge_base != testing_sha:
-                self.error(
-                    f"Branch '{branch}' not merged to testing. Merge to testing first."
+            if new_status == "ARCHIVED" and not force:
+                main_sha = (
+                    self._run_git(["rev-parse", "main"]).stdout.strip()
+                    if self._run_git(["rev-parse", "--verify", "main"]).returncode == 0
+                    else None
                 )
-            local_branches = self._run_git(["branch", "--list", branch]).stdout.strip()
-            if local_branches:
-                self.error(
-                    f"Local branch '{branch}' still exists. Delete it first: git branch -d {branch}"
+                branch_commit = (
+                    branch_sha or self._run_git(["rev-parse", branch]).stdout.strip()
                 )
+                if main_sha:
+                    merge_base = self._run_git(
+                        ["merge-base", branch_commit, "main"]
+                    ).stdout.strip()
+                    if merge_base != main_sha:
+                        self.error(
+                            f"Branch '{branch}' not merged to main. Merge to main first. Alternatively, move to REJECTED."
+                        )
+                if yes:
+                    self._run_git(["push", "origin", branch], cwd=self.root)
+                    self._run_git(["branch", "-d", branch], cwd=self.root)
+                else:
+                    if not self.as_json:
+                        print(f"Branch '{branch}' is merged to main.")
+                        print(
+                            f"To archive and clean up, run: tasks-ai move {task_id_num} ARCHIVED -y"
+                        )
+                    self.finish(
+                        {
+                            "id": task_id_num,
+                            "task_id": task_id,
+                            "title": title,
+                            "branch_merged": True,
+                            "needs_confirmation": True,
+                        }
+                    )
 
         if new_status == "ARCHIVED" and self._has_incomplete_checkboxes(filepath):
             self.error("Cannot archive task: contains unfinished checkboxes (- [ ])")
@@ -1049,8 +1116,10 @@ class TasksCLI:
             for item in sorted(items):
                 if item == ".gitkeep" or item in seen:
                     continue
-                seen.add(item)
                 path = os.path.join(fp, item)
+                if not os.path.isdir(path):
+                    continue
+                seen.add(item)
                 task = FM.load(path)
                 tt, tb = self._parse_filename(item)
                 task_id = task.metadata.get("Id")
@@ -1060,7 +1129,12 @@ class TasksCLI:
                     self._atomic_write(path, task)
                     self._run_git(["add", "--all"], cwd=self.tasks_path)
                     self._run_git(
-                        ["commit", "-m", f"Assign Id {task_id} to {item}"],
+                        [
+                            "commit",
+                            "--allow-empty",
+                            "-m",
+                            f"Assign Id {task_id} to {item}",
+                        ],
                         cwd=self.tasks_path,
                     )
                 tasks.append(
@@ -1136,35 +1210,43 @@ class TasksCLI:
         task_id = os.path.basename(filepath).rsplit(".", 1)[0]
         title = task.metadata.get("Ti", "")
         branch = task_id
-        if self._run_git(["ls-remote", "--heads", "origin", branch]).stdout:
-            return
-        print(f"Task: [{task.metadata.get('Id', '')}] {title}")
-        print(f"Branch: {branch} (no longer exists in remote)")
-        print(f"State: {task.metadata.get('St', 'unknown')}")
-        if input(f"Archive this task? [y/N]: ").strip().lower() == "y":
-            self._move_logic(os.path.basename(filepath), "ARCHIVED", force=True)
-            print(f"Archived: [{task.metadata.get('Id', '')}] {title}")
 
-    def _reconcile_all(self):
-        orphans = []
-        for state, folder in STATE_FOLDERS.items():
-            if state == "ARCHIVED":
-                continue
-            fp = os.path.join(self.tasks_path, folder)
-            if not os.path.exists(fp):
-                continue
-            for item in os.listdir(fp):
-                if item == ".gitkeep":
-                    continue
-                filepath = os.path.join(fp, item)
-                _, branch = self._parse_filename(item)
-                if not self._run_git(["ls-remote", "--heads", "origin", branch]).stdout:
-                    orphans.append(item)
-        if not orphans:
-            print("No orphans.")
-            return
-        for o in orphans:
-            print(f"  - {o}")
-        if input("Archive all? [y/N]: ").strip().lower() == "y":
-            for o in orphans:
-                self._move_logic(o, "ARCHIVED", force=True)
+        # Check if remote 'origin' exists
+        has_origin = self._run_git(["remote", "get-url", "origin"]).returncode == 0
+        if has_origin:
+            if self._run_git(["ls-remote", "--heads", "origin", branch]).stdout:
+                return
+            if not self.as_json:
+                print(f"Branch: {branch} (no longer exists in remote)")
+        else:
+            # If no origin, check if local branch exists
+            has_local = self._run_git(["rev-parse", "--verify", branch]).returncode == 0
+            if has_local:
+                return
+            if not self.as_json:
+                print(f"Branch: {branch} (does not exist locally)")
+
+        if not self.as_json:
+            print(f"Task: [{task.metadata.get('Id', '')}] {title}")
+            print(f"State: {task.metadata.get('St', 'unknown')}")
+
+        do_archive = False
+        if self.as_json:
+            do_archive = True
+        else:
+            if input(f"Archive this task? [y/N]: ").strip().lower() == "y":
+                do_archive = True
+
+        if do_archive:
+            self._move_logic(
+                os.path.basename(filepath), "ARCHIVED", force=True, yes=False
+            )
+            if self.as_json:
+                self.finish({"archived": True, "task_id": task_id})
+            else:
+                print(f"Archived: [{task.metadata.get('Id', '')}] {title}")
+        else:
+            if self.as_json:
+                self.finish({"archived": False, "task_id": task_id})
+            else:
+                print("Cancelled.")

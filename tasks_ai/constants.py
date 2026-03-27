@@ -14,17 +14,20 @@ STATE_FOLDERS = {
     "STAGING": "staging",
     "LIVE": "live",
     "ARCHIVED": "archived",
+    "REJECTED": "rejected",
 }
 
 ALLOWED_TRANSITIONS = {
     "BACKLOG": ["READY", "PROGRESSING"],
     "READY": ["PROGRESSING", "BLOCKED"],
     "PROGRESSING": ["TESTING", "BLOCKED"],
-    "TESTING": ["REVIEW", "BLOCKED"],
-    "REVIEW": ["STAGING", "TESTING", "BLOCKED"],
-    "STAGING": ["LIVE", "REVIEW", "BLOCKED"],
+    "TESTING": ["REVIEW", "BLOCKED", "REJECTED"],
+    "REVIEW": ["STAGING", "TESTING", "BLOCKED", "PROGRESSING"],
+    "STAGING": ["LIVE", "ARCHIVED", "REVIEW", "BLOCKED", "REJECTED"],
     "LIVE": ["ARCHIVED", "STAGING", "BLOCKED"],
     "BLOCKED": ["READY", "PROGRESSING", "TESTING", "REVIEW", "STAGING", "LIVE"],
+    "ARCHIVED": ["PROGRESSING"],
+    "REJECTED": ["PROGRESSING"],
 }
 
 KEY_MAP = {
@@ -50,6 +53,7 @@ AGENT OPERATIONAL PROTOCOL:
 4. CREATION: 'create' requires --story, --tech, --criteria, and --plan. 
    --repro is mandatory for --type issue. Titles must be >= 10 chars.
 5. LIFECYCLE: BACKLOG -> READY -> PROGRESSING -> TESTING -> REVIEW -> STAGING -> LIVE -> ARCHIVED.
+   - Note: REVIEW and ARCHIVED tasks can move back to PROGRESSING if needed.
    - Task MUST be in PROGRESSING before modifying project code.
    - 'move' to PROGRESSING creates/syncs '.tasks/progressing/<task_id>/current-task.md'.
 6. PROGRESS: Use 'modify' to update --progress, --findings, or --mitigations.

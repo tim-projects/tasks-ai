@@ -77,6 +77,12 @@ if __name__ == "__main__":
         "status",
         help="Target state. Use comma-separated for multi-step (e.g., 'READY,PROGRESSING,TESTING').",
     )
+    mv_p.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="Auto-confirm archive (push and delete branch).",
+    )
 
     del_p = subparsers.add_parser(
         "delete", help="Permanently remove a task and its logs."
@@ -118,7 +124,7 @@ if __name__ == "__main__":
             mitigations=args.mitigations,
         )
     elif args.command == "move":
-        cli.move(args.filename, args.status)
+        cli.move(args.filename, args.status, yes=args.yes)
     elif args.command == "delete":
         cli.delete(args.filename, confirm=args.confirm)
     elif args.command == "list":
