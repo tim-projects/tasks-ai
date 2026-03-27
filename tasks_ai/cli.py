@@ -156,6 +156,19 @@ class TasksCLI:
         if not hasattr(sys, "_called_from_test"):
             sys.exit(0)
 
+    def _has_incomplete_checkboxes(self, task_path):
+        if not os.path.isdir(task_path):
+            return False
+        for filename in os.listdir(task_path):
+            if not filename.endswith(".md"):
+                continue
+            filepath = os.path.join(task_path, filename)
+            with open(filepath, "r", encoding="utf-8") as f:
+                content = f.read()
+            if re.search(r"- \[\s*\]", content):
+                return True
+        return False
+
     def _auto_archive(self):
         live_dir = os.path.join(self.tasks_path, STATE_FOLDERS["LIVE"])
         if not os.path.exists(live_dir):
@@ -179,6 +192,11 @@ class TasksCLI:
                             )
                             break
                 if live_date and (now - live_date) > timedelta(days=7):
+                    if self._has_incomplete_checkboxes(path):
+                        self.log(
+                            f"Skipping archive for {folder}: incomplete checkboxes"
+                        )
+                        continue
                     self.log(f"Auto-archiving: {folder}")
                     self._move_logic(folder, "ARCHIVED", force=True)
 
@@ -325,6 +343,20 @@ class TasksCLI:
         task_dir = os.path.join(self.tasks_path, STATE_FOLDERS["BACKLOG"], task_id)
         if self.find_task(task_id)[0]:
             self.error(f"Task {task_id} exists.")
+
+        for state, folder in STATE_FOLDERS.items():
+            fp = os.path.join(self.tasks_path, folder)
+            if not os.path.exists(fp):
+                continue
+            for item in os.listdir(fp):
+                if item == ".gitkeep":
+                    continue
+                path = os.path.join(fp, item)
+                task = FM.load(path)
+                if task.metadata.get("Id") == numeric_id:
+                    self.error(
+                        f"Task with Id {numeric_id} already exists (in {state})."
+                    )
 
         task = Task(
             metadata={
@@ -749,6 +781,8 @@ class TasksCLI:
                     f"Task lacks sufficient detail to move to PROGRESSING. Missing or incomplete: {', '.join(missing)}",
                     hint='Use \'tasks-ai show <id>\' to see current content, then \'tasks-ai modify <id> --story "..." --tech "..." --criteria "..." --plan "..."\' to add proper details. For issues, also add --repro. Run \'tasks-ai modify --help\' for syntax help.',
                 )
+        if new_status == "ARCHIVED" and self._has_incomplete_checkboxes(filepath):
+            self.error("Cannot archive task: contains unfinished checkboxes (- [ ])")
         self._sync_task_content(filepath, task, is_final=(new_status == "ARCHIVED"))
         task["St"] = new_status
         new_filepath = os.path.join(
