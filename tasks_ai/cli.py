@@ -1120,20 +1120,17 @@ class TasksCLI:
     def reconcile(self, target=None):
         if not target:
             self.error(
-                "Missing target. Use 'tasks-ai reconcile all' to archive orphaned tasks (tasks whose branches no longer exist in remote), or provide a specific task Id/filename.",
+                "Missing target. Provide a specific task Id/filename to reconcile.",
                 hint="Run 'tasks-ai list' to see available task Ids and filenames.",
             )
-        if target == "all":
-            self._reconcile_all()
-        else:
-            self._reconcile_single(target)
+        self._reconcile_single(target)
 
     def _reconcile_single(self, filename):
         filepath, _ = self.find_task(filename)
         if not filepath:
             self.error(
                 f"Task '{filename}' not found.",
-                hint="Use 'tasks-ai list' to see available task Ids and filenames. You can also use 'tasks-ai reconcile all' to check all tasks for orphaned branches.",
+                hint="Use 'tasks-ai list' to see available task Ids and filenames.",
             )
         task = FM.load(filepath)
         task_id = os.path.basename(filepath).rsplit(".", 1)[0]
