@@ -18,7 +18,7 @@ USEFUL COMMANDS:
   tasks-ai show <id> progress    Show active progress notes
   tasks-ai move <id> <state>      Move task to new state (use comma-separated for multi-step)
   tasks-ai modify <id> --plan "1. Step"  Update task fields
-  tasks-ai reconcile all          Archive tasks whose branches no longer exist in remote
+  tasks-ai reconcile <id>         Archive task with orphaned branch
 
 STATE MACHINE: BACKLOG -> READY -> PROGRESSING -> TESTING -> REVIEW -> STAGING -> LIVE -> ARCHIVED
 """
