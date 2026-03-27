@@ -781,6 +781,40 @@ class TasksCLI:
                     f"Task lacks sufficient detail to move to PROGRESSING. Missing or incomplete: {', '.join(missing)}",
                     hint='Use \'tasks-ai show <id>\' to see current content, then \'tasks-ai modify <id> --story "..." --tech "..." --criteria "..." --plan "..."\' to add proper details. For issues, also add --repro. Run \'tasks-ai modify --help\' for syntax help.',
                 )
+
+        tt, branch = self._parse_filename(os.path.basename(filepath))
+
+        if new_status in ("REVIEW", "ARCHIVED"):
+            if not self._run_git(["ls-remote", "--heads", "origin", branch]).stdout:
+                self.error(
+                    f"Branch '{branch}' not pushed to remote. Push and try again."
+                )
+
+        if new_status == "REVIEW":
+            merge_base = self._run_git(["merge-base", branch, "testing"]).stdout.strip()
+            testing_sha = (
+                self._run_git(["rev-parse", "testing"]).stdout.strip()
+                if self._run_git(["rev-parse", "--verify", "testing"]).returncode == 0
+                else None
+            )
+            if not testing_sha or merge_base != testing_sha:
+                self.error(
+                    f"Branch '{branch}' not merged to testing. Merge to testing first."
+                )
+
+        if new_status == "ARCHIVED":
+            merge_base = self._run_git(["merge-base", branch, "main"]).stdout.strip()
+            main_sha = self._run_git(["rev-parse", "main"]).stdout.strip()
+            if merge_base != main_sha:
+                self.error(
+                    f"Branch '{branch}' not merged to main. Merge to main first."
+                )
+            local_branches = self._run_git(["branch", "--list", branch]).stdout.strip()
+            if local_branches:
+                self.error(
+                    f"Local branch '{branch}' still exists. Delete it after merging to main: git branch -d {branch}"
+                )
+
         if new_status == "ARCHIVED" and self._has_incomplete_checkboxes(filepath):
             self.error("Cannot archive task: contains unfinished checkboxes (- [ ])")
         self._sync_task_content(filepath, task, is_final=(new_status == "ARCHIVED"))
