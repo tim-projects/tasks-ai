@@ -821,6 +821,11 @@ class TasksCLI:
                 self.error(
                     f"Branch '{branch}' not merged to testing. Merge to testing first."
                 )
+            local_branches = self._run_git(["branch", "--list", branch]).stdout.strip()
+            if local_branches:
+                self.error(
+                    f"Local branch '{branch}' still exists. Delete it first: git branch -d {branch}"
+                )
 
         if new_status == "ARCHIVED" and self._has_incomplete_checkboxes(filepath):
             self.error("Cannot archive task: contains unfinished checkboxes (- [ ])")
