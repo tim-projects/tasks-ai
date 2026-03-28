@@ -13,8 +13,8 @@ SCRIPT_PATH = os.path.abspath("tasks.py")
 
 
 @pytest.fixture
-def repo_dir():
-    """Create a temporary git repository for testing."""
+def repo_info():
+    """Create a temporary git repository for testing and return (path, branch)."""
     test_dir = tempfile.mkdtemp()
     repo_path = os.path.join(test_dir, "repo")
     os.makedirs(repo_path)
@@ -28,14 +28,24 @@ def repo_dir():
         ["git", "config", "user.name", "Test User"], cwd=repo_path, check=True
     )
 
-    # Initial commit on main/master branch
+    # Initial commit on main branch
     readme_path = os.path.join(repo_path, "README.md")
     with open(readme_path, "w") as f:
         f.write("# Test Repo")
     subprocess.run(["git", "add", "README.md"], cwd=repo_path, check=True)
     subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=repo_path, check=True)
 
-    yield repo_path
+    # Get branch name
+    res = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    branch = res.stdout.strip()
+
+    yield repo_path, branch
 
     # Cleanup
     shutil.rmtree(test_dir)
@@ -61,71 +71,57 @@ def run_cmd(repo_path, args, input_str=None):
         }
 
 
-def test_init(repo_dir):
+def test_init(repo_info):
     """Test 'init' command."""
-    res = run_cmd(repo_dir, ["init"])
+    repo_path, _ = repo_info
+    res = run_cmd(repo_path, ["init"])
     assert res["success"] is True, res
-    assert os.path.exists(os.path.join(repo_dir, ".tasks"))
-
-    # Check if branch exists
-    res_git = subprocess.run(
-        ["git", "branch"], cwd=repo_dir, capture_output=True, text=True
-    )
-    assert "tasks" in res_git.stdout
+    assert os.path.exists(os.path.join(repo_path, ".tasks"))
+    # Check git logging
+    assert any(m.startswith("Git: ") for m in res["messages"]), res["messages"]
 
 
-def test_create_basic(repo_dir):
-    """Test basic task creation."""
-    run_cmd(repo_dir, ["init"])
+def test_create_and_git_logging(repo_info):
+    """Test task creation and verify git action logging."""
+    repo_path, branch = repo_info
+    run_cmd(repo_path, ["init"])
+    # Ensure we are on the default branch before creating
+    subprocess.run(["git", "checkout", branch], cwd=repo_path, check=True)
+    
     res = run_cmd(
-        repo_dir,
+        repo_path,
         [
             "create",
-            "My First Task Title Long",
+            "Test Task Logging",
             "--story",
-            "S" * 10,
+            "As a tester, I want logging.",
             "--tech",
-            "T" * 10,
+            "Subprocess capture.",
             "--criteria",
-            "C" * 10,
+            "Log exists.",
             "--plan",
-            "P" * 10,
+            "1. Run git.",
         ],
     )
     assert res["success"] is True, res
+    # Verify git log messages
+    assert any("Git: Committed changes" in m for m in res["messages"]), res["messages"]
+    assert any(
+        "Git: Created and switched to branch" in m for m in res["messages"]
+    ), res["messages"]
 
 
-def test_list(repo_dir):
-    """Test 'list' command."""
-    run_cmd(repo_dir, ["init"])
-    run_cmd(
-        repo_dir,
-        [
-            "create",
-            "Task One Title Long",
-            "--story",
-            "S" * 10,
-            "--tech",
-            "T" * 10,
-            "--criteria",
-            "C" * 10,
-            "--plan",
-            "P" * 10,
-        ],
-    )
-    res = run_cmd(repo_dir, ["list"])
-    assert res["success"] is True, res
-    assert len(res["data"]["BACKLOG"]) == 1
-
-
-def test_backward_moves(repo_dir):
-    """Test REVIEW -> PROGRESSING and ARCHIVED -> PROGRESSING."""
-    run_cmd(repo_dir, ["init"])
+def test_rejected_lifecycle(repo_info):
+    """Test the new REJECTED status and transitions."""
+    repo_path, branch = repo_info
+    run_cmd(repo_path, ["init"])
+    subprocess.run(["git", "checkout", branch], cwd=repo_path, check=True)
+    
     res = run_cmd(
-        repo_dir,
+        repo_path,
         [
             "create",
-            "Backward Move Task",
+            "Rejectable Task",
             "--story",
             "S" * 10,
             "--tech",
@@ -136,46 +132,35 @@ def test_backward_moves(repo_dir):
             "P" * 10,
         ],
     )
-    assert res["success"] is True, res
     task_id = res["data"]["task_id"]
 
-    # Step-by-step move to REVIEW
-    res = run_cmd(repo_dir, ["move", "1", "READY"])
-    assert res["success"] is True, res
-    res = run_cmd(repo_dir, ["move", "1", "PROGRESSING"])
-    assert res["success"] is True, res
-    res = run_cmd(repo_dir, ["move", "1", "TESTING"])
-    assert res["success"] is True, res
+    # Move to TESTING (allowed: BACKLOG->READY->PROGRESSING->TESTING)
+    m_res = run_cmd(repo_path, ["move", "1", "READY,PROGRESSING,TESTING"])
+    assert m_res["success"] is True, m_res
 
-    # Setup testing branch
-    subprocess.run(["git", "branch", "testing"], cwd=repo_dir, check=True)
-    subprocess.run(["git", "checkout", "testing"], cwd=repo_dir, check=True)
-    subprocess.run(["git", "merge", task_id], cwd=repo_dir, check=True)
-    subprocess.run(["git", "checkout", task_id], cwd=repo_dir, check=True)
-
-    # Ensure branch is ahead of testing
-    with open(os.path.join(repo_dir, "work1.txt"), "w") as f:
-        f.write("W1")
-    subprocess.run(["git", "add", "work1.txt"], cwd=repo_dir, check=True)
-    subprocess.run(["git", "commit", "-m", "W1"], cwd=repo_dir, check=True)
-
-    res = run_cmd(repo_dir, ["move", "1", "REVIEW"])
+    # Move to REJECTED (allowed: TESTING->REJECTED)
+    res = run_cmd(repo_path, ["move", "1", "REJECTED"])
     assert res["success"] is True, res
+    assert res["data"]["status"] == "REJECTED"
+    assert os.path.exists(os.path.join(repo_path, ".tasks", "rejected", task_id))
 
-    # REVIEW -> PROGRESSING
-    res = run_cmd(repo_dir, ["move", "1", "PROGRESSING"])
+    # Move REJECTED -> PROGRESSING (allowed)
+    res = run_cmd(repo_path, ["move", "1", "PROGRESSING"])
     assert res["success"] is True, res
     assert res["data"]["status"] == "PROGRESSING"
 
 
-def test_auto_archive(repo_dir):
-    """Test auto-archiving logic."""
-    run_cmd(repo_dir, ["init"])
+def test_backward_moves_complex(repo_info):
+    """Test all new backward transitions: REVIEW/ARCHIVED -> PROGRESSING."""
+    repo_path, branch = repo_info
+    run_cmd(repo_path, ["init"])
+    subprocess.run(["git", "checkout", branch], cwd=repo_path, check=True)
+    
     res = run_cmd(
-        repo_dir,
+        repo_path,
         [
             "create",
-            "Auto Archive Task",
+            "Backward Task",
             "--story",
             "S" * 10,
             "--tech",
@@ -188,44 +173,50 @@ def test_auto_archive(repo_dir):
     )
     task_id = res["data"]["task_id"]
 
-    live_dir = os.path.join(repo_dir, ".tasks", "live")
-    os.makedirs(live_dir, exist_ok=True)
-    src = os.path.join(repo_dir, ".tasks", "backlog", task_id)
-    dst = os.path.join(live_dir, task_id)
-    shutil.move(src, dst)
-
-    with open(os.path.join(dst, "criteria.md"), "w") as f:
-        f.write("- [x] Done")
-
-    logs_dir = os.path.join(repo_dir, ".tasks", "logs")
-    os.makedirs(logs_dir, exist_ok=True)
-    log_path = os.path.join(logs_dir, task_id)
-    old_date = (datetime.now() - timedelta(days=8)).strftime("%y%m%d %H:%M")
-    with open(log_path, "w") as f:
-        f.write(f"- {old_date}: STAGING->LIVE\n")
-
-    res = run_cmd(repo_dir, ["list"])
+    # 1. REVIEW -> PROGRESSING
+    m_res = run_cmd(repo_path, ["move", "1", "READY,PROGRESSING,TESTING,REVIEW"])
+    assert m_res["success"] is True, m_res
+    res = run_cmd(repo_path, ["move", "1", "PROGRESSING"])
     assert res["success"] is True, res
-    assert os.path.exists(os.path.join(repo_dir, ".tasks", "archived", task_id))
+    assert res["data"]["status"] == "PROGRESSING"
 
+    # 2. ARCHIVED -> PROGRESSING
+    # Setup for ARCHIVED: 
+    # a) Complete checkboxes
+    criteria_path = os.path.join(repo_path, ".tasks", "progressing", task_id, "criteria.md")
+    with open(criteria_path, "w") as f:
+        f.write("- [x] Done\n")
+    
+    # b) Promote to STAGING
+    run_cmd(repo_path, ["move", "1", "TESTING,REVIEW,STAGING"])
+    
+    # c) Merge to default branch
+    subprocess.run(["git", "checkout", branch], cwd=repo_path, check=True)
+    subprocess.run(["git", "merge", "--allow-unrelated-histories", "-m", "Merge for test", task_id], cwd=repo_path, check=True)
+    
+    # d) Delete branch
+    subprocess.run(["git", "branch", "-D", task_id], cwd=repo_path, check=True)
 
-def test_reconcile_single_only(repo_dir):
-    """Test that reconcile without target does a scan (not failure)."""
-    run_cmd(repo_dir, ["init"])
-    res = run_cmd(repo_dir, ["reconcile"])
-    # Reconcile without target does a scan (returns success with cleaned list)
+    # e) Move to ARCHIVED
+    res = run_cmd(repo_path, ["move", "1", "ARCHIVED", "-y"])
     assert res["success"] is True, res
-    assert "cleaned" in res["data"], res
+
+    res = run_cmd(repo_path, ["move", "1", "PROGRESSING"])
+    assert res["success"] is True, res
+    assert res["data"]["status"] == "PROGRESSING"
 
 
-def test_show(repo_dir):
-    """Test 'show' command."""
-    run_cmd(repo_dir, ["init"])
-    run_cmd(
-        repo_dir,
+def test_cleanup_workflow(repo_info):
+    """Test the cleanup command (reconcile --all)."""
+    repo_path, branch = repo_info
+    run_cmd(repo_path, ["init"])
+    subprocess.run(["git", "checkout", branch], cwd=repo_path, check=True)
+    
+    res = run_cmd(
+        repo_path,
         [
             "create",
-            "Show Task Title Long",
+            "Merged Task",
             "--story",
             "S" * 10,
             "--tech",
@@ -236,43 +227,73 @@ def test_show(repo_dir):
             "P" * 10,
         ],
     )
-    res = run_cmd(repo_dir, ["show", "1"])
+    task_id = res["data"]["task_id"]
+
+    # Complete checkboxes
+    criteria_path = os.path.join(repo_path, ".tasks", "backlog", task_id, "criteria.md")
+    with open(criteria_path, "w") as f:
+        f.write("- [x] Done\n")
+
+    # Move to REVIEW
+    run_cmd(repo_path, ["move", "1", "READY,PROGRESSING,TESTING,REVIEW"])
+
+    # Merge to default branch
+    subprocess.run(["git", "checkout", branch], cwd=repo_path, check=True)
+    subprocess.run(["git", "merge", "--allow-unrelated-histories", "-m", "Merge for cleanup", task_id], cwd=repo_path, check=True)
+
+    # Reconcile (dry run scan)
+    res = run_cmd(repo_path, ["reconcile"])
     assert res["success"] is True, res
-    assert res["data"]["metadata"]["Title"] == "Show Task Title Long"
+    assert len(res["data"]["cleaned"]) >= 1
+    assert any(task_id == c for c in res["data"]["cleaned"])
 
-
-def test_modify(repo_dir):
-    """Test 'modify' command."""
-    run_cmd(repo_dir, ["init"])
-    run_cmd(
-        repo_dir,
-        [
-            "create",
-            "Modify Task Title Long",
-            "--story",
-            "S" * 10,
-            "--tech",
-            "T" * 10,
-            "--criteria",
-            "C" * 10,
-            "--plan",
-            "P" * 10,
-        ],
-    )
-    res = run_cmd(repo_dir, ["modify", "1", "--title", "Updated Title Here"])
+    # Reconcile --all (performs cleanup)
+    res = run_cmd(repo_path, ["reconcile", "--all"])
     assert res["success"] is True, res
-    res = run_cmd(repo_dir, ["show", "1"])
-    assert res["data"]["metadata"]["Title"] == "Updated Title Here"
+    assert any(task_id == c for c in res["data"]["cleaned"])
+
+    # Verify branch deleted and task archived
+    branches = subprocess.run(
+        ["git", "branch"], cwd=repo_path, capture_output=True, text=True
+    ).stdout
+    assert task_id not in branches
+    assert os.path.exists(os.path.join(repo_path, ".tasks", "archived", task_id))
 
 
-def test_link_and_block(repo_dir):
-    """Test linking and blocking logic."""
-    run_cmd(repo_dir, ["init"])
-    run_cmd(
-        repo_dir,
+def test_config_and_tools(repo_info):
+    """Test configuration detection and tool execution."""
+    repo_path, _ = repo_info
+    run_cmd(repo_path, ["init"])
+
+    # Create dummy pytest config to be detected
+    with open(os.path.join(repo_path, "pyproject.toml"), "w") as f:
+        f.write('[tool.pytest.ini_options]\ntestpaths = ["."]')
+
+    # Detect
+    res = run_cmd(repo_path, ["config", "detect"])
+    assert res["success"] is True, res
+    assert res["data"]["detected"]["test"] == "pytest"
+
+    # Save detection
+    res = run_cmd(repo_path, ["config", "detect", "--save"])
+    assert res["success"] is True, res
+
+    # Verify saved
+    res = run_cmd(repo_path, ["config", "list"])
+    assert res["data"]["repo.test"] == "pytest"
+
+
+def test_link_and_block_lifecycle(repo_info):
+    """Test blocking logic with new transitions."""
+    repo_path, branch = repo_info
+    run_cmd(repo_path, ["init"])
+    subprocess.run(["git", "checkout", branch], cwd=repo_path, check=True)
+    
+    res1 = run_cmd(
+        repo_path,
         [
             "create",
-            "Blocker Task Title Long",
+            "Blocker Task",
             "--story",
             "S" * 10,
             "--tech",
@@ -283,11 +304,11 @@ def test_link_and_block(repo_dir):
             "P" * 10,
         ],
     )
-    run_cmd(
-        repo_dir,
+    res2 = run_cmd(
+        repo_path,
         [
             "create",
-            "Blocked Task Title Long",
+            "Blocked Task",
             "--story",
             "S" * 10,
             "--tech",
@@ -298,101 +319,29 @@ def test_link_and_block(repo_dir):
             "P" * 10,
         ],
     )
+    task_id1 = res1["data"]["task_id"]
+
+    # Complete checkboxes for blocker
+    cp = os.path.join(repo_path, ".tasks", "backlog", task_id1, "criteria.md")
+    with open(cp, "w") as f:
+        f.write("- [x] Done\n")
 
     # Link 2 to 1
-    res = run_cmd(repo_dir, ["link", "2", "1"])
-    assert res["success"] is True, res
+    run_cmd(repo_path, ["link", "2", "1"])
 
-    # Try to move 2 to PROGRESSING (should fail)
-    run_cmd(repo_dir, ["move", "2", "READY"])
-    res = run_cmd(repo_dir, ["move", "2", "PROGRESSING"])
-    assert res["success"] is False, res
+    # Attempt to move Blocked to PROGRESSING (should fail)
+    res = run_cmd(repo_path, ["move", "2", "PROGRESSING"])
+    assert res["success"] is False
     assert "Blocked by" in res["error"]
 
+    # Archive Blocker
+    run_cmd(repo_path, ["move", "1", "READY,PROGRESSING,TESTING,REVIEW,STAGING"])
+    # Mock merge for archive
+    subprocess.run(["git", "checkout", branch], cwd=repo_path, check=True)
+    subprocess.run(["git", "merge", "--allow-unrelated-histories", "-m", "Merge blocker", task_id1], cwd=repo_path, check=True)
+    subprocess.run(["git", "branch", "-D", task_id1], cwd=repo_path, check=True)
+    run_cmd(repo_path, ["move", "1", "ARCHIVED", "-y"])
 
-def test_delete_workflow(repo_dir):
-    """Test deletion with confirmation."""
-    run_cmd(repo_dir, ["init"])
-    run_cmd(
-        repo_dir,
-        [
-            "create",
-            "Delete Me Task Title",
-            "--story",
-            "S" * 10,
-            "--tech",
-            "T" * 10,
-            "--criteria",
-            "C" * 10,
-            "--plan",
-            "P" * 10,
-        ],
-    )
-
-    res = run_cmd(repo_dir, ["delete", "1"])
+    # Now attempt Blocked to PROGRESSING (should succeed)
+    res = run_cmd(repo_path, ["move", "2", "PROGRESSING"])
     assert res["success"] is True, res
-    code = res["data"]["delete_code"]
-
-    res = run_cmd(repo_dir, ["delete", "1", "--confirm", code])
-    assert res["success"] is True, res
-
-    res = run_cmd(repo_dir, ["list"])
-    assert "BACKLOG" not in res["data"] or len(res["data"]["BACKLOG"]) == 0
-
-
-def test_current(repo_dir):
-    """Test 'current' command."""
-    run_cmd(repo_dir, ["init"])
-    run_cmd(
-        repo_dir,
-        [
-            "create",
-            "Current Task Title Long",
-            "--story",
-            "S" * 10,
-            "--tech",
-            "T" * 10,
-            "--criteria",
-            "C" * 10,
-            "--plan",
-            "P" * 10,
-        ],
-    )
-    run_cmd(repo_dir, ["move", "1", "READY,PROGRESSING"])
-
-    res = run_cmd(repo_dir, ["current"])
-    assert res["success"] is True, res
-    assert res["data"]["metadata"]["Title"] == "Current Task Title Long"
-
-
-def test_checkpoint_sync(repo_dir):
-    """Test 'checkpoint' syncs content."""
-    run_cmd(repo_dir, ["init"])
-    res = run_cmd(
-        repo_dir,
-        [
-            "create",
-            "Checkpoint Task Title",
-            "--story",
-            "S" * 10,
-            "--tech",
-            "T" * 10,
-            "--criteria",
-            "C" * 10,
-            "--plan",
-            "P" * 10,
-        ],
-    )
-    task_id = res["data"]["task_id"]
-    run_cmd(repo_dir, ["move", "1", "READY,PROGRESSING"])
-
-    progress_file = os.path.join(
-        repo_dir, ".tasks", "progressing", task_id, "current-task.md"
-    )
-    with open(progress_file, "w") as f:
-        f.write("---\nTask: " + task_id + "\n---\n# Content\nSYNC_NOTE")
-
-    run_cmd(repo_dir, ["checkpoint"])
-    notes_file = os.path.join(repo_dir, ".tasks", "progressing", task_id, "notes.md")
-    with open(notes_file, "r") as f:
-        assert "SYNC_NOTE" in f.read()

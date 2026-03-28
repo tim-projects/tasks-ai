@@ -84,7 +84,37 @@ class TasksCLI:
 
     def _run_git(self, args, cwd=None):
         cwd = cwd or self.root
-        return subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True)
+        result = subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True)
+
+        if result.returncode == 0:
+            cmd = args[0]
+            if cmd == "checkout":
+                branch = args[-1]
+                if "-b" in args:
+                    self.log(f"Git: Created and switched to branch '{branch}'")
+                else:
+                    self.log(f"Git: Switched to branch '{branch}'")
+            elif cmd == "commit":
+                msg = ""
+                if "-m" in args:
+                    idx = args.index("-m")
+                    msg = f": {args[idx+1]}"
+                self.log(f"Git: Committed changes{msg}")
+            elif cmd == "add":
+                self.log("Git: Staged changes")
+            elif cmd == "push":
+                remote = args[1] if len(args) > 1 else ""
+                branch = args[2] if len(args) > 2 else ""
+                self.log(f"Git: Pushed {branch} to {remote}")
+            elif cmd == "branch" and ("-d" in args or "-D" in args):
+                branch = args[-1]
+                self.log(f"Git: Deleted branch '{branch}'")
+            elif cmd == "merge":
+                self.log(f"Git: Merged '{args[-1]}'")
+            elif cmd == "worktree" and "add" in args:
+                self.log(f"Git: Added worktree at '{args[args.index('add')+1]}'")
+
+        return result
 
     def _run_repo(self, args, cwd=None):
         cwd = cwd or self.root
@@ -222,12 +252,16 @@ class TasksCLI:
                     self._move_logic(folder, "ARCHIVED", force=True, yes=False)
 
     def init(self):
+        original_branch = self._run_git(["branch", "--show-current"]).stdout.strip()
         branches = self._run_git(["branch"]).stdout
         if TASKS_BRANCH not in branches:
             self._run_git(["checkout", "--orphan", TASKS_BRANCH])
             self._run_git(["reset", "--hard"])
             self._run_git(["commit", "--allow-empty", "-m", "Initial tasks commit"])
-            self._run_git(["checkout", "-"])
+            if original_branch:
+                self._run_git(["checkout", original_branch])
+            else:
+                self._run_git(["checkout", "-"])
         is_worktree = False
         if os.path.exists(self.tasks_path):
             wt_res = self._run_git(["worktree", "list", "--porcelain"])
@@ -745,14 +779,17 @@ class TasksCLI:
                             self.error(
                                 f"Blocked by {b}. Blocker must be ARCHIVED first."
                             )
-                task = self._perform_move(task, current_state, target, filepath)
-                current_state = target
-                if i == len(statuses) - 1:
+                try:
+                    task = self._perform_move(task, current_state, target, filepath)
                     filepath = os.path.join(
                         self.tasks_path,
                         STATE_FOLDERS[target],
                         os.path.basename(filepath),
                     )
+                    current_state = target
+                except Exception as e:
+                    self.error(f"Move failed at step {target}: {e}")
+
             final_status = statuses[-1]
             self.log(f"Moved: [{task_id_num}] {tt} | {title} -> {final_status}")
             self.finish(
@@ -1425,32 +1462,28 @@ class TasksCLI:
             ["rev-parse", "--abbrev-ref", "HEAD"]
         ).stdout.strip()
 
+        default_branch = self._get_default_branch()
+
         if current_branch not in ("main", "master", "staging", "testing"):
             if self.as_json:
                 self.finish(
                     {
-                        "error": f"Cleanup must be run from main, staging, or testing branch. Currently on '{current_branch}'."
+                        "error": f"Cleanup must be run from {default_branch}, staging, or testing branch. Currently on '{current_branch}'."
                     }
                 )
             else:
                 print(
-                    f"Error: Cleanup must be run from main, staging, or testing branch."
+                    f"Error: Cleanup must be run from {default_branch}, staging, or testing branch."
                 )
                 print(f"Currently on: {current_branch}")
             return
 
-        main_sha = (
-            self._run_git(["rev-parse", "main"]).stdout.strip()
-            if self._run_git(["rev-parse", "--verify", "main"]).returncode == 0
-            else self._run_git(["rev-parse", "master"]).stdout.strip()
-            if self._run_git(["rev-parse", "--verify", "master"]).returncode == 0
-            else None
-        )
+        main_sha = self._run_git(["rev-parse", default_branch]).stdout.strip()
         if not main_sha:
             if self.as_json:
                 self.finish({"cleaned": [], "archived": [], "count": 0})
             else:
-                print("No main or master branch found.")
+                print(f"No {default_branch} branch found.")
             return
 
         branches = self._run_git(
@@ -1476,7 +1509,7 @@ class TasksCLI:
 
             is_ancestor = (
                 self._run_git(
-                    ["merge-base", "--is-ancestor", branch_sha, "main"]
+                    ["merge-base", "--is-ancestor", branch_sha, default_branch]
                 ).returncode
                 == 0
             )
@@ -1678,9 +1711,7 @@ class TasksCLI:
                 detected["format"] = tool
                 break
 
-        if self.as_json:
-            self.finish({"detected": detected})
-        else:
+        if not self.as_json:
             print("Detected tools:")
             for k, v in detected.items():
                 print(f"  {k}: {v}")

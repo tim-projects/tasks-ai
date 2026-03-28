@@ -16,7 +16,6 @@ if __name__ == "__main__":
     )
     parser.add_argument("--version", action="store_true", help="Show version.")
     parser.add_argument("-j", "--json", action="store_true", help="JSON output.")
-    parser.add_argument("-j", "--json", action="store_true", help="JSON output.")
     parser.add_argument(
         "-q",
         "--quiet",
