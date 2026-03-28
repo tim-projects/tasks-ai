@@ -1,84 +1,86 @@
-# Tasks AI: The Git-Backed Task Manager for Modern Development
+# Tasks AI: Task Management for AI Agents
 
-`tasks-ai` is a task management system that lives inside your Git repository. No external services, no sign-ups, no subscriptions. Your tasks live right next to your code.
+`tasks-ai` gives AI agents a structured way to manage their work. It lives in your Git repo and provides a reliable framework for agents to track, progress, and complete tasks without requiring human intervention at every step.
 
-## Why Use tasks-ai?
+## The Problem
 
-### 1. Your Tasks Are Always Synced
-Unlike tools that live in the cloud, your tasks live in your repo. They're there when you `git clone`, they're there in your CI pipeline, they're there when you switch branches. No "sync" button needed.
+AI agents working on code need to:
+- Know what tasks exist and their priority
+- Understand what state each task is in
+- Track their progress as they work
+- Know when work is ready for review
+- Handle blockers and dependencies
+- Report results back reliably
 
-### 2. Built for AI Collaboration
-Working with AI agents? `tasks-ai` gives them a structured way to work on your project. They know what to do, what state each task is in, and how to report progress. Add the directive to your `AGENTS.md` and AI agents can autonomously manage work.
+Without a structured system, agents improvise. They skip steps, lose track of what's done, and can't communicate their status reliably.
 
-### 3. No Context Switching
-Your tasks are just files. Browse them in your editor, grep them, diff them. The structured format is human-readable but also machine-parseable.
+## The Solution
 
-### 4. Enforced Workflow
-The state machine prevents tasks from getting "stuck" in limbo. Each task has a clear lifecycle from idea → in progress → done.
+`tasks-ai` provides a deterministic state machine with quality gates. Agents must follow the lifecycle, meeting criteria at each step before advancing.
 
-## The States
+### The State Machine
 
 ```
-BACKLOG → READY → PROGRESSING → TESTING → REVIEW → STAGING → LIVE → ARCHIVED
+BACKLOG → READY → PROGRESSING → TESTING → REVIEW → STAGING → ARCHIVED
                                     ↓                    ↓
-                               BLOCKED             REJECTED
+                               BLOCKED              REJECTED
 ```
 
-- **BACKLOG**: New ideas and tasks
-- **READY**: Approved, waiting to be worked on
-- **PROGRESSING**: Active work (your agent should be here)
-- **TESTING**: Code written, being verified
-- **REVIEW**: Ready for human review
-- **STAGING**: Approved, ready to ship
-- **LIVE**: Deployed/released
-- **ARCHIVED**: Done and retired
-- **REJECTED**: Won't ship (abandoned)
-- **BLOCKED**: Stuck on a dependency
+Each transition has rules:
+- Can't move to PROGRESSING without complete story/tech/criteria/plan
+- Can't move to TESTING without passing your own verification
+- Can't move to REVIEW without being on a branch
+- Can't move to ARCHIVED without code merged to main (or moved to REJECTED)
+
+## Key Features
+
+| Feature | Benefit |
+|---------|---------|
+| **Atomic Task IDs** | Race-condition free ID generation for parallel agent operations |
+| **Quality Gates** | Tasks can't advance without meeting requirements |
+| **Branch Per Task** | Each task gets its own branch, automatically managed |
+| **Auto-Archive** | When code merges to main, task auto-archives with branch cleanup |
+| **Full Audit Trail** | Every state change is a Git commit |
+| **Progress Tracking** | Agents write notes to task files as they work |
+| **JSON Output** | Reliable parsing for agent consumption |
+| **Zero Dependencies** | Works with Python standard library only |
+
+## How It Improves Workflow
+
+1. **Reliable Execution** - Agents can't skip steps or advance prematurely
+2. **Traceability** - Every action creates a commit, full history in Git
+3. **Blocker Handling** - Clear protocol for when work can't proceed
+4. **Parallel Safety** - File locking ensures multiple agents don't conflict
+5. **Self-Documenting** - Task files contain story, tech, criteria, plan, and progress
 
 ## Quick Start
 
 ```bash
-# Install
-curl -sSL https://raw.githubusercontent.com/tim-projects/tasks-ai/main/install.sh | bash
+# Add to AGENTS.md so agents discover the tool:
+# "Manage project tasks using the tasks-ai command. Run tasks-ai -h to discover the interface."
 
-# Initialize in your project
+# Agent initializes on first run
 tasks-ai init
 
-# Create a task
+# Agent creates work
 tasks-ai create "Add user login" \
-  --story "As a user, I can log in so I can access my account" \
-  --tech "Use existing auth provider, add session middleware" \
-  --criteria "User can log in with email/password" \
-  --plan "Add auth middleware" "Create login endpoint" "Add session handling"
+  --story "..." --tech "..." --criteria "..." --plan "..."
 
-# Start working
+# Agent starts working (creates branch automatically)
 tasks-ai move 1 PROGRESSING
 
-# ...do work...
-
-# Move through states
+# Agent progresses through states
 tasks-ai move 1 TESTING
 tasks-ai move 1 REVIEW
-tasks-ai move 1 STAGING
-tasks-ai move 1 ARCHIVED
+
+# When code merges to main, agent archives
+tasks-ai move 1 ARCHIVED -y  # pushes branch, deletes local, archives
 ```
 
-## Features
+## Why This Over alternatives?
 
-| Feature | Description |
-|---------|-------------|
-| **Git Integration** | Tasks stored in dedicated worktree, auto-committed changes |
-| **AI-Ready** | JSON output, structured fields, clear protocols for agents |
-| **Zero Deps** | Pure Python standard library |
-| **Flexible** | Work with CLI, editor, or scripts |
-| **Track Progress** | Write notes directly to task files during work |
-
-## Who Is This For?
-
-- **Teams using AI agents** - Give agents a structured way to manage their work
-- **Solo developers** - Lightweight task tracking without the bloat
-- **Projects needing audit trails** - Every task change is a Git commit
-
----
-
-*For help, run `tasks-ai -h`*
+- **No external services** - Everything in your repo
+- **No setup** - Single Python file, zero deps
+- **Git-native** - Leverages existing infrastructure
+- **Enforced quality** - Can't bypass gates
+- **Agent-optimized** - JSON output, clear protocols, deterministic behavior
