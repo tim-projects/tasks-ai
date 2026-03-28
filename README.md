@@ -2,6 +2,31 @@
 
 `tasks-ai` gives AI agents a structured way to manage their work. It lives in your Git repo and provides a reliable framework for agents to track, progress, and complete tasks without requiring human intervention at every step.
 
+## 🚀 One-Line Install
+
+### Local (No Sudo)
+Installs to `~/.local/bin/tasks-ai`.
+```bash
+curl -sSL https://raw.githubusercontent.com/tim-projects/tasks-ai/main/install.sh | bash
+```
+
+### System-Wide (Global)
+Installs to `/usr/local/bin/tasks-ai`.
+```bash
+curl -sSL https://raw.githubusercontent.com/tim-projects/tasks-ai/main/install.sh | sudo bash -s -- -g
+```
+
+## 🛠️ Getting Started
+
+To enable autonomous task management in your project, simply add the following directive to your `AGENTS.md` file:
+
+> **Directive**: "Manage project tasks using the `tasks-ai` command. Run `tasks-ai -h` to discover the interface and operational protocol."
+
+The agent will then autonomously:
+1. Initialize the system (`tasks-ai init`).
+2. Discover or create tasks (`tasks-ai list` / `tasks-ai create`).
+3. Manage work-in-progress and promotions through the Git-native state machine.
+
 ## The Problem
 
 AI agents working on code need to:
