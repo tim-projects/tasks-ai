@@ -141,7 +141,7 @@ class TasksCLI:
     def log(self, message):
         if self.as_json:
             self.output_messages.append(message)
-        else:
+        elif not self.quiet:
             print(message)
 
     def error(self, message, hint=None):
