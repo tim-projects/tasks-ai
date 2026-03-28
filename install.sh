@@ -7,6 +7,7 @@ SYMLINK_DIR="$HOME/.local/bin"
 UNINSTALL=false
 FORCE=false
 UPGRADE=false
+INTERACTIVE=false
 
 # Detect if running from a local tasks-ai repo
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -22,15 +23,10 @@ for arg in "$@"; do
     upgrade)
       UPGRADE=true
       ;;
-    -g|--system)
+    --system)
       MODE="system"
       DEST_DIR="/opt/tasks-ai"
       SYMLINK_DIR="/usr/local/bin"
-      ;;
-    -u|--user)
-      MODE="local"
-      DEST_DIR="$HOME/.local/tasks-ai"
-      SYMLINK_DIR="$HOME/.local/bin"
       ;;
     --uninstall)
       UNINSTALL=true
@@ -38,27 +34,33 @@ for arg in "$@"; do
     --force)
       FORCE=true
       ;;
+    -i|--interactive)
+      INTERACTIVE=true
+      ;;
     -h|--help)
-      echo "Usage: install.sh [OPTIONS]"
+      echo "Tasks AI Installer"
+      echo ""
+      echo "Usage: ./install.sh [COMMAND]"
+      echo ""
+      echo "Commands:"
+      echo "  upgrade         Download and install latest from GitHub"
+      echo "  --system        Install to /opt/tasks-ai (requires sudo)"
       echo ""
       echo "Options:"
-      echo "  upgrade         Download and install latest from GitHub"
-      echo "  -u, --user      Install locally to ~/.local/tasks-ai with symlinks in ~/.local/bin"
-      echo "  -g, --system    Install system-wide to /opt/tasks-ai with symlinks in /usr/local/bin"
-      echo "  --force         Force reinstall even if up to date"
+      echo "  -i, --interactive  Run interactive installer"
+      echo "  --force         Force reinstall"
       echo "  --uninstall     Remove existing installation"
       echo "  -h, --help      Show this help message"
+      echo ""
+      echo "Examples:"
+      echo "  ./install.sh              # Show this help"
+      echo "  ./install.sh -i           # Interactive installer"
+      echo "  ./install.sh upgrade      # Download and install latest"
+      echo "  sudo ./install.sh --system # Install system-wide"
       exit 0
       ;;
   esac
 done
-
-# If system mode, check for sudo
-if [ "$MODE" == "system" ] && [ "$EUID" -ne 0 ]; then
-  echo "Error: System-wide installation requires root privileges."
-  echo "Please run with sudo: sudo $0 $@"
-  exit 1
-fi
 
 # Handle uninstall
 if [ "$UNINSTALL" == "true" ]; then
@@ -78,46 +80,79 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
-# If no arguments provided, ask interactively
+# If no arguments, show help and ask
 if [ -z "$1" ]; then
+    echo "Tasks AI Installer - Use --help for full options"
     echo ""
-    echo "Tasks AI Installer"
-    echo "=================="
-    echo "1) Install (user mode - ~/.local/tasks-ai)"
-    echo "2) Install (system mode - /opt/tasks-ai - requires sudo)"
-    echo "3) Upgrade (download latest from GitHub)"
-    echo "4) Uninstall"
-    echo "5) Quit"
+    echo "Quick usage:"
+    echo "  ./install.sh              # Show this help"
+    echo "  ./install.sh -i           # Interactive installer"
+    echo "  ./install.sh upgrade      # Download latest from GitHub"
+    echo "  sudo ./install.sh --system # Install system-wide"
     echo ""
-    read -p "Select option [1]: " choice
-    
-    case "$choice" in
-        2)
-            MODE="system"
-            DEST_DIR="/opt/tasks-ai"
-            SYMLINK_DIR="/usr/local/bin"
-            ;;
-        3)
-            UPGRADE=true
-            ;;
-        4)
-            echo "Uninstalling..."
-            rm -rf "$DEST_DIR"
-            rm -f "$SYMLINK_DIR/tasks"
-            rm -f "$SYMLINK_DIR/repo"
-            rm -f "$SYMLINK_DIR/r"
-            rm -f "$SYMLINK_DIR/check"
-            echo "Uninstallation complete!"
-            exit 0
-            ;;
-        5|"")
-            exit 0
+    read -p "Run interactive installer? [y/N]: " yn
+    case "$yn" in
+        [yY])
+            INTERACTIVE=true
             ;;
         *)
-            echo "Invalid option."
-            exit 1
+            exit 0
             ;;
     esac
+elif [ "$1" == "upgrade" ]; then
+    UPGRADE=true
+elif [ "$1" == "-i" ] || [ "$1" == "--interactive" ]; then
+    INTERACTIVE=true
+fi
+
+# Skip interactive if running upgrade or system
+if [ "$UPGRADE" == "true" ] || [ "$MODE" == "system" ]; then
+    if [ "$MODE" == "system" ] && [ "$EUID" -ne 0 ]; then
+        echo "Error: System-wide installation requires root privileges."
+        echo "Please run with sudo: sudo $0 $@"
+        exit 1
+    fi
+else
+    # Run interactive mode
+    if [ "$INTERACTIVE" == "true" ]; then
+        echo ""
+        echo "Tasks AI Installer"
+        echo "=================="
+        echo "1) Install (user mode - ~/.local/tasks-ai)"
+        echo "2) Install (system mode - /opt/tasks-ai - requires sudo)"
+        echo "3) Upgrade (download latest from GitHub)"
+        echo "4) Uninstall"
+        echo "5) Quit"
+        echo ""
+        read -p "Select option [1]: " choice
+        
+        case "$choice" in
+            2)
+                MODE="system"
+                DEST_DIR="/opt/tasks-ai"
+                SYMLINK_DIR="/usr/local/bin"
+                ;;
+            3)
+                UPGRADE=true
+                ;;
+            4)
+                echo "Uninstalling..."
+                rm -rf "$DEST_DIR"
+                rm -f "$SYMLINK_DIR/tasks"
+                rm -f "$SYMLINK_DIR/repo"
+                rm -f "$SYMLINK_DIR/r"
+                rm -f "$SYMLINK_DIR/check"
+                echo "Uninstallation complete!"
+                exit 0
+                ;;
+            5|"")
+                exit 0
+                ;;
+            *)
+                MODE="local"
+                ;;
+        esac
+    fi
 fi
 
 # Ensure destination directory exists
