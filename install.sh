@@ -4,6 +4,8 @@
 MODE="local"
 DEST_DIR="$HOME/.local/tasks-ai"
 SYMLINK_DIR="$HOME/.local/bin"
+OTHER_DEST_DIR="/opt/tasks-ai"
+OTHER_SYMLINK_DIR="/usr/local/bin"
 UNINSTALL=false
 FORCE=false
 UPGRADE=false
@@ -27,6 +29,8 @@ for arg in "$@"; do
       MODE="system"
       DEST_DIR="/opt/tasks-ai"
       SYMLINK_DIR="/usr/local/bin"
+      OTHER_DEST_DIR="$HOME/.local/tasks-ai"
+      OTHER_SYMLINK_DIR="$HOME/.local/bin"
       ;;
     --uninstall)
       UNINSTALL=true
@@ -62,14 +66,43 @@ for arg in "$@"; do
   esac
 done
 
+# Function to remove an installation
+remove_installation() {
+    local dest=$1
+    local symlink_dir=$2
+    local quiet=$3
+    
+    if [ "$quiet" != "true" ]; then echo "Removing installation at $dest..."; fi
+    
+    # Need sudo for /opt or /usr/local
+    if [[ "$dest" == "/opt/"* ]] || [[ "$symlink_dir" == "/usr/local/"* ]]; then
+        if [ "$EUID" -ne 0 ]; then
+            echo "Warning: Root privileges required to remove system-wide installation."
+            sudo rm -rf "$dest"
+            sudo rm -f "$symlink_dir/tasks" "$symlink_dir/repo" "$symlink_dir/r" "$symlink_dir/check"
+        else
+            rm -rf "$dest"
+            rm -f "$symlink_dir/tasks" "$symlink_dir/repo" "$symlink_dir/r" "$symlink_dir/check"
+        fi
+    else
+        rm -rf "$dest"
+        rm -f "$symlink_dir/tasks" "$symlink_dir/repo" "$symlink_dir/r" "$symlink_dir/check"
+    fi
+}
+
+prompt_yes_no() {
+    local prompt="$1"
+    local yn
+    read -p "$prompt [y/N]: " yn
+    case "$yn" in
+        [yY]) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 # Handle uninstall
 if [ "$UNINSTALL" == "true" ]; then
-  echo "Uninstalling..."
-  rm -rf "$DEST_DIR"
-  rm -f "$SYMLINK_DIR/tasks"
-  rm -f "$SYMLINK_DIR/repo"
-  rm -f "$SYMLINK_DIR/r"
-  rm -f "$SYMLINK_DIR/check"
+  remove_installation "$DEST_DIR" "$SYMLINK_DIR"
   echo "Uninstallation complete!"
   exit 0
 fi
@@ -131,17 +164,14 @@ else
                 MODE="system"
                 DEST_DIR="/opt/tasks-ai"
                 SYMLINK_DIR="/usr/local/bin"
+                OTHER_DEST_DIR="$HOME/.local/tasks-ai"
+                OTHER_SYMLINK_DIR="$HOME/.local/bin"
                 ;;
             3)
                 UPGRADE=true
                 ;;
             4)
-                echo "Uninstalling..."
-                rm -rf "$DEST_DIR"
-                rm -f "$SYMLINK_DIR/tasks"
-                rm -f "$SYMLINK_DIR/repo"
-                rm -f "$SYMLINK_DIR/r"
-                rm -f "$SYMLINK_DIR/check"
+                remove_installation "$DEST_DIR" "$SYMLINK_DIR"
                 echo "Uninstallation complete!"
                 exit 0
                 ;;
@@ -152,6 +182,17 @@ else
                 MODE="local"
                 ;;
         esac
+    fi
+fi
+
+# Enforce one installation mode
+if [ -d "$OTHER_DEST_DIR" ] || [ -L "$OTHER_SYMLINK_DIR/tasks" ]; then
+    echo "Conflict detected: An installation exists in the other mode ($OTHER_DEST_DIR)."
+    if [ "$FORCE" == "true" ] || prompt_yes_no "Remove the other installation to continue?"; then
+        remove_installation "$OTHER_DEST_DIR" "$OTHER_SYMLINK_DIR"
+    else
+        echo "Installation cancelled to avoid dual-mode conflict."
+        exit 1
     fi
 fi
 
@@ -166,7 +207,7 @@ if [ ! -d "$SYMLINK_DIR" ]; then
     mkdir -p "$SYMLINK_DIR"
 fi
 
-echo "Installing Tasks AI..."
+echo "Installing Tasks AI in $MODE mode..."
 
 if [ "$UPGRADE" == "true" ]; then
     echo "Upgrading (downloading from GitHub)..."

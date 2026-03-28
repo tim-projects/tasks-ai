@@ -1,10 +1,8 @@
 import pytest
 import os
 import shutil
-import subprocess
 import sys
 from tasks_ai.cli import TasksCLI
-from tasks_ai.constants import TASKS_DIR, STATE_FOLDERS
 
 # Helper to run CLI
 def run_cli(args):

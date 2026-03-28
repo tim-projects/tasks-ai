@@ -12,6 +12,8 @@ Commands:
   status                     - Show current branch and pending changes
   git <args>                 - Run git command
   branch list                - List all branches
+  branch create <name>       - Create and switch to new branch
+  branch delete <name>       - Delete local branch
   push                       - Push current branch to origin
   commit <message>           - Add all changes and commit with message (runs compliance)
   cleanup                    - Run tasks cleanup
@@ -27,10 +29,7 @@ import subprocess
 import sys
 import os
 import json
-import shutil
-import re
 from pathlib import Path
-from typing import Optional, List, Dict, Any
 
 # Add current dir to path to import tasks_ai
 sys.path.append(os.getcwd())
@@ -91,29 +90,39 @@ def prompt_yes_no(prompt):
 
 class ToolRunner:
     def __init__(self):
-        self.cli = TasksCLI(quiet=True) if TasksCLI else None
+        pass
 
     def run_validation(self, fix=False):
-        if not self.cli:
-            warn("TasksCLI not available, skipping tool validation")
+        check_py = os.path.join(os.getcwd(), "check.py")
+        if not os.path.exists(check_py):
+            warn("check.py not found, skipping tool validation")
             return True
+
         tools = ["format", "lint", "typecheck", "test"]
         all_passed = True
         for t in tools:
-            tool = self.cli.get_tool(t)
-            if not tool: continue
-            log(f"Running {t} ({tool})...")
-            try:
-                # Mock sys.exit for cli.run_tool
-                original_exit = sys.exit
-                sys.exit = lambda x: None
-                try:
-                    self.cli.run_tool(t, fix=fix)
-                finally:
-                    sys.exit = original_exit
-            except Exception as e:
-                warn(f"{t} failed: {e}")
-                all_passed = False
+            # We still need to know if it's configured. 
+            # check.py handles the config check itself and returns 1 if not configured.
+            # But we only want to fail if it IS configured and FAILS.
+            # Wait, if it's NOT configured, check.py prints an error and returns 1.
+            # We should probably only run 'all' if we want to check everything.
+            pass
+        
+        # Simpler: just run 'check all'
+        log("Running codebase validation (check all)...")
+        cmd = [sys.executable, check_py, "all"]
+        if fix:
+            cmd.append("--fix")
+        
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(result.stdout)
+            print(result.stderr, file=sys.stderr)
+            warn(f"Validation failed with exit code {result.returncode}")
+            all_passed = False
+        else:
+            log("✅ Validation passed")
+            
         return all_passed
 
 def branch_exists(name):
@@ -203,11 +212,11 @@ def cmd_merge(src_input, target):
         print(merge_res.stderr)
         error("Please resolve conflicts manually, then finish the merge and push.")
 
-    # 3. Push
+    # 4. Push
     if prompt_yes_no(f"Push {target} to origin?"):
         run(["git", "push", "origin", target])
     
-    # 4. Cleanup / Return
+    # 5. Cleanup / Return
     if prompt_yes_no(f"Switch back to {src}?"):
         run(["git", "checkout", src])
 
@@ -265,7 +274,8 @@ def main():
     elif cmd == "commit":
         msg = " ".join(args[1:]) if len(args) > 1 else None
         if not msg: error("Message required")
-        ToolRunner().run_validation(fix=True)
+        if not ToolRunner().run_validation(fix=True):
+            error("Compliance failed. Changes not committed.")
         run(["git", "add", "."])
         run(["git", "commit", "-m", msg])
     elif cmd == "push":

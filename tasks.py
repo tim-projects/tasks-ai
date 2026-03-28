@@ -137,6 +137,15 @@ if __name__ == "__main__":
         "upgrade", help="Upgrade tasks to latest version (runs install.sh)."
     )
 
+    run_p = subparsers.add_parser("run", help="Run a configured tool.")
+    run_p.add_argument(
+        "tool",
+        nargs="?",
+        choices=["lint", "test", "typecheck", "format", "all"],
+        help="Tool to run.",
+    )
+    run_p.add_argument("--fix", action="store_true", help="Apply fixes if supported.")
+
     args = parser.parse_args()
 
     if args.version:
@@ -194,3 +203,5 @@ if __name__ == "__main__":
         cli.config(args.action, args.key, args.value, save=args.save)
     elif args.command == "upgrade":
         cli.upgrade()
+    elif args.command == "run":
+        cli.run_tool(args.tool, fix=args.fix)

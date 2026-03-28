@@ -7,8 +7,6 @@ import os
 import subprocess
 import tempfile
 import shutil
-import json
-import sys
 import pytest
 
 REPO_SCRIPT = os.path.abspath("repo")

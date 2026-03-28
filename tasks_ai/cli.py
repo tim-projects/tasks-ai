@@ -9,7 +9,6 @@ import json
 import shutil
 import random
 import string
-import uuid
 import fcntl
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -1439,7 +1438,7 @@ class TasksCLI:
         if self.as_json:
             do_archive = True
         else:
-            if input(f"Archive this task? [y/N]: ").strip().lower() == "y":
+            if input("Archive this task? [y/N]: ").strip().lower() == "y":
                 do_archive = True
 
         if do_archive:
@@ -1768,108 +1767,40 @@ class TasksCLI:
 
     def run_tool(self, tool_name=None, fix=False):
         """Run configured tools (lint, test, typecheck, format)."""
-        if not tool_name or tool_name == "all":
-            self._run_tool("lint", fix)
-            self._run_tool("test", fix)
-            self._run_tool("typecheck", fix)
-            self._run_tool("format", fix)
-            return
+        check_py = os.path.join(self.root, "check.py")
+        if not os.path.exists(check_py):
+            self.error("check.py not found in project root.")
+            return 1
 
-        self._run_tool(tool_name, fix)
+        cmd = [sys.executable, check_py, tool_name or "all"]
+        if fix:
+            cmd.append("--fix")
+        if self.as_json:
+            cmd.append("--json")
 
-    def _run_tool(self, tool_type, fix=False):
-        """Run a single tool based on configuration."""
-        tool = self.get_tool(tool_type)
-
-        tool_commands = {
-            "lint": {
-                "ruff": ["ruff", "check", "."] + (["--fix"] if fix else []),
-                "pylint": ["pylint", "."],
-                "eslint": ["npx", "eslint", "."] + (["--fix"] if fix else []),
-                "golangci-lint": ["golangci-lint", "run", "./..."]
-                + (["--fix"] if fix else []),
-            },
-            "test": {
-                "pytest": ["pytest"],
-                "go test": ["go", "test", "./..."],
-                "cargo test": ["cargo", "test"],
-                "npm test": ["npm", "test"],
-            },
-            "typecheck": {
-                "mypy": ["mypy", "."],
-                "pyright": ["npx", "pyright", "."],
-                "typescript": ["npx", "tsc", "--noEmit"],
-            },
-            "format": {
-                "ruff": ["ruff", "format", "."] + (["--check"] if not fix else []),
-                "prettier": ["npx", "prettier", "--write", "."]
-                if fix
-                else ["npx", "prettier", "--check", "."],
-                "rustfmt": ["cargo", "fmt"] + (["--check"] if not fix else []),
-            },
-        }
-
-        commands = tool_commands.get(tool_type, {})
-
-        if not tool or tool not in commands:
-            if self.as_json:
-                self.finish(
-                    {
-                        "tool": tool_type,
-                        "error": f"No {tool_type} tool configured",
-                        "configured": tool,
-                    }
-                )
-            else:
-                print(
-                    f"No {tool_type} tool configured. Run 'tasks config detect' or set manually:"
-                )
-                print(f"  tasks config set repo.{tool_type} <tool>")
-            return
-
-        cmd = commands[tool]
-
-        import shutil
-
-        cmd0 = shutil.which(cmd[0])
-
-        if not cmd0:
-            venv_bin = os.path.join(self.root, "venv", "bin", cmd[0])
-            if os.path.exists(venv_bin):
-                cmd0 = venv_bin
-
-        if not cmd0:
-            if self.as_json:
-                self.finish(
-                    {
-                        "tool": tool_type,
-                        "error": f"Tool '{cmd[0]}' not found in PATH",
-                        "configured": tool,
-                    }
-                )
-            else:
-                print(
-                    f"Tool '{cmd[0]}' not found in PATH. Install it or check configuration."
-                )
-            return
-
-        cmd[0] = cmd0
+        # Run check.py and capture output to pass it through TasksCLI's finish/error
+        result = subprocess.run(cmd, cwd=self.root, capture_output=True, text=True)
 
         if self.as_json:
-            self.finish({"tool": tool_type, "command": cmd, "configured": tool})
+            try:
+                data = json.loads(result.stdout)
+                if result.returncode == 0:
+                    self.finish(data)
+                else:
+                    # In JSON mode, check.py outputs success: False
+                    print(result.stdout)
+                    sys.exit(1)
+            except json.JSONDecodeError:
+                self.error(f"Validation failed with exit code {result.returncode}\n{result.stdout}\n{result.stderr}")
         else:
-            print(f"Running {tool} ({tool_type})...")
-            result = subprocess.run(
-                cmd, cwd=self.root, capture_output=True, text=True, shell=False
-            )
-            if result.stdout:
-                print(result.stdout)
+            # In plain mode, check.py prints directly to stdout/stderr
+            print(result.stdout)
             if result.stderr:
                 print(result.stderr, file=sys.stderr)
-            if result.returncode == 0:
-                print(f"✅ {tool} passed")
-            else:
-                print(f"❌ {tool} failed")
+            if result.returncode != 0:
+                sys.exit(result.returncode)
+
+        return result.returncode
 
     def upgrade(self):
         """Upgrade tasks to latest version by running install.sh."""
