@@ -444,7 +444,11 @@ class TasksCLI:
                 cwd=self.tasks_path,
             )
             self._run_git(["checkout", "-b", task_id], cwd=self.root)
+            current_branch = self._run_git(
+                ["rev-parse", "--abbrev-ref", "HEAD"]
+            ).stdout.strip()
             self.log(f"Created: [{numeric_id}] {task_type} | {title}")
+            self.log(f"Branch: {task_id} | Now on: {current_branch}")
             self.finish(
                 {
                     "id": numeric_id,
@@ -452,6 +456,8 @@ class TasksCLI:
                     "title": title,
                     "file": task_id,
                     "path": os.path.relpath(task_dir, self.root),
+                    "branch": task_id,
+                    "current_branch": current_branch,
                 }
             )
         except Exception as e:
