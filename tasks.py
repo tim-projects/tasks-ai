@@ -129,6 +129,10 @@ if __name__ == "__main__":
         "--save", action="store_true", help="Save detected config (for detect action)."
     )
 
+    subparsers.add_parser(
+        "upgrade", help="Upgrade tasks to latest version (runs install.sh)."
+    )
+
     args = parser.parse_args()
     cli = TasksCLI(as_json=args.json, command=args.command, quiet=args.quiet)
 
@@ -179,3 +183,5 @@ if __name__ == "__main__":
         cli.cleanup(dry_run=args.dry_run, yes=args.yes)
     elif args.command == "config":
         cli.config(args.action, args.key, args.value, save=args.save)
+    elif args.command == "upgrade":
+        cli.upgrade()

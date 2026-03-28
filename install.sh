@@ -5,19 +5,26 @@ set -e
 
 # Default values
 MODE="local"
-DEST_DIR="$HOME/.local/bin"
+DEST_DIR="$HOME/.local/tasks-ai"
+SYMLINK_DIR="$HOME/.local/bin"
 UNINSTALL=false
+
+# Detect if running from a local tasks-ai repo
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+IS_LOCAL_REPO=false
 
 # Parse arguments
 for arg in "$@"; do
   case $arg in
     -g|--system)
       MODE="system"
-      DEST_DIR="/usr/local/bin"
+      DEST_DIR="/opt/tasks-ai"
+      SYMLINK_DIR="/usr/local/bin"
       ;;
     -u|--user)
       MODE="local"
-      DEST_DIR="$HOME/.local/bin"
+      DEST_DIR="$HOME/.local/tasks-ai"
+      SYMLINK_DIR="$HOME/.local/bin"
       ;;
     --uninstall)
       UNINSTALL=true
@@ -26,8 +33,8 @@ for arg in "$@"; do
       echo "Usage: install.sh [OPTIONS]"
       echo ""
       echo "Options:"
-      echo "  -u, --user      Install locally to ~/.local/bin (default)"
-      echo "  -g, --system    Install system-wide to /usr/local/bin (requires sudo)"
+      echo "  -u, --user      Install locally to ~/.local/tasks-ai with symlinks in ~/.local/bin"
+      echo "  -g, --system    Install system-wide to /opt/tasks-ai with symlinks in /usr/local/bin"
       echo "  --uninstall     Remove existing installation"
       echo "  -h, --help      Show this help message"
       exit 0
@@ -65,14 +72,20 @@ remove_existing() {
 }
 
 echo "Checking for existing installations..."
-remove_existing "$HOME/.local/bin/tasks-ai"
-remove_existing "/usr/local/bin/tasks-ai"
-remove_existing "$HOME/.local/bin/tasks"
-remove_existing "/usr/local/bin/tasks"
-remove_existing "$HOME/.local/bin/repo"
-remove_existing "/usr/local/bin/repo"
-remove_existing "$HOME/.local/bin/check"
-remove_existing "/usr/local/bin/check"
+
+# Clean destination dir
+remove_existing "$DEST_DIR/tasks"
+remove_existing "$DEST_DIR/repo"
+remove_existing "$DEST_DIR/check"
+remove_existing "$DEST_DIR/tasks.py"
+remove_existing "$DEST_DIR/repo.py"
+remove_existing "$DEST_DIR/check.py"
+remove_existing "$DEST_DIR/install.sh"
+
+# Also clean symlinks
+remove_existing "$SYMLINK_DIR/tasks"
+remove_existing "$SYMLINK_DIR/repo"
+remove_existing "$SYMLINK_DIR/check"
 echo "Done."
 
 # Handle uninstall
@@ -87,58 +100,68 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
-# Define source and destination
-SOURCE_FILES=("tasks.py" "tasks_ai" "repo.py" "check.py")
-DEST_DIR="$DEST_DIR"
-
 # Ensure destination directory exists
 if [ ! -d "$DEST_DIR" ]; then
     echo "Creating directory $DEST_DIR..."
     mkdir -p "$DEST_DIR"
 fi
 
-# Copy files
 echo "Installing Tasks AI..."
-for src in "${SOURCE_FILES[@]}"; do
-    if [ -d "$src" ]; then
-        cp -r "$src" "$DEST_DIR/"
-    else
-        cp "$src" "$DEST_DIR/"
+
+if [ "$IS_LOCAL_REPO" == "true" ]; then
+    echo "Using local files from $SCRIPT_DIR"
+    # Copy from local repo
+    cp "$SCRIPT_DIR/tasks.py" "$DEST_DIR/"
+    cp "$SCRIPT_DIR/check.py" "$DEST_DIR/"
+    cp "$SCRIPT_DIR/repo.py" "$DEST_DIR/"
+    cp "$SCRIPT_DIR/install.sh" "$DEST_DIR/"
+    
+    # Copy tasks_ai directory
+    if [ -d "$SCRIPT_DIR/tasks_ai" ]; then
+        rm -rf "$DEST_DIR/tasks_ai"
+        cp -r "$SCRIPT_DIR/tasks_ai" "$DEST_DIR/"
     fi
-done
+else
+    echo "Downloading from GitHub..."
+    # Download files from GitHub
+    curl -sSL "https://raw.githubusercontent.com/tim-projects/tasks-ai/main/tasks.py" -o "$DEST_DIR/tasks.py"
+    curl -sSL "https://raw.githubusercontent.com/tim-projects/tasks-ai/main/check.py" -o "$DEST_DIR/check.py"
+    curl -sSL "https://raw.githubusercontent.com/tim-projects/tasks-ai/main/repo.py" -o "$DEST_DIR/repo.py"
+    curl -sSL "https://raw.githubusercontent.com/tim-projects/tasks-ai/main/install.sh" -o "$DEST_DIR/install.sh"
+    
+    # Download tasks_ai directory
+    mkdir -p "$DEST_DIR/tasks_ai"
+    for module in cli.py help_text.py constants.py file_task.py task.py; do
+        curl -sSL "https://raw.githubusercontent.com/tim-projects/tasks-ai/main/tasks_ai/$module" -o "$DEST_DIR/tasks_ai/$module"
+    done
+fi
 
-# Set executable for the entry point
+# Set executable permissions
 chmod +x "$DEST_DIR/tasks.py"
+chmod +x "$DEST_DIR/check.py"
+chmod +x "$DEST_DIR/repo.py"
 
-if [ -L "$DEST_DIR/tasks-ai" ]; then
-    rm "$DEST_DIR/tasks-ai"
+# Ensure symlink directory exists
+if [ ! -d "$SYMLINK_DIR" ]; then
+    mkdir -p "$SYMLINK_DIR"
 fi
-if [ -L "$DEST_DIR/tasks" ]; then
-    rm "$DEST_DIR/tasks"
-fi
-ln -s "$DEST_DIR/tasks.py" "$DEST_DIR/tasks"
 
-if [ -f "$DEST_DIR/repo.py" ]; then
-    chmod +x "$DEST_DIR/repo.py"
-fi
-if [ -L "$DEST_DIR/repo" ]; then
-    rm "$DEST_DIR/repo"
-fi
-ln -s "$DEST_DIR/repo.py" "$DEST_DIR/repo"
-ln -s "$DEST_DIR/repo.py" "$DEST_DIR/r"
+# Create symlinks in SYMLINK_DIR (remove first if exists)
+rm -f "$SYMLINK_DIR/tasks"
+ln -s "$DEST_DIR/tasks.py" "$SYMLINK_DIR/tasks"
 
-if [ -f "$DEST_DIR/check.py" ]; then
-    chmod +x "$DEST_DIR/check.py"
-fi
-if [ -L "$DEST_DIR/check" ]; then
-    rm "$DEST_DIR/check"
-fi
-ln -s "$DEST_DIR/check.py" "$DEST_DIR/check"
+rm -f "$SYMLINK_DIR/repo"
+ln -s "$DEST_DIR/repo.py" "$SYMLINK_DIR/repo"
+
+rm -f "$SYMLINK_DIR/r"
+ln -s "$DEST_DIR/repo.py" "$SYMLINK_DIR/r"
+
+rm -f "$SYMLINK_DIR/check"
+ln -s "$DEST_DIR/check.py" "$SYMLINK_DIR/check"
 
 echo "--------------------------------------------------"
 echo "Installation complete!"
 if [ "$MODE" == "local" ]; then
-    # Check if DEST_DIR is in PATH
     if [[ ":$PATH:" != *":$DEST_DIR:"* ]]; then
         echo "Warning: $DEST_DIR is not in your PATH."
         echo "Add this to your .bashrc or .zshrc:"

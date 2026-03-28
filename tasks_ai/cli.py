@@ -1839,3 +1839,79 @@ class TasksCLI:
                 print(f"✅ {tool} passed")
             else:
                 print(f"❌ {tool} failed")
+
+    def upgrade(self):
+        """Upgrade tasks to latest version by running install.sh."""
+        import shutil
+
+        user_dir = os.path.expanduser("~/.local/tasks-ai")
+        user_symlinks = os.path.expanduser("~/.local/bin")
+        system_dir = "/opt/tasks-ai"
+        system_symlinks = "/usr/local/bin"
+
+        can_write_user = os.access(user_dir, os.W_OK)
+        can_write_system = os.access(system_dir, os.W_OK)
+
+        install_path = None
+        mode = None
+
+        if can_write_user:
+            install_path = user_dir
+            mode = "user"
+        elif can_write_system:
+            install_path = system_dir
+            mode = "system"
+        else:
+            self.error("Cannot write to either ~/.local/tasks-ai or /opt/tasks-ai")
+
+        install_script = os.path.join(install_path, "install.sh")
+
+        if not os.path.exists(install_script):
+            self.error(
+                f"install.sh not found at {install_path}. Run 'tasks init' first or install manually."
+            )
+
+        self.log(f"Detected installation: {mode} at {install_path}")
+
+        this_dir = os.path.dirname(os.path.abspath(__file__))
+        local_install = os.path.join(os.path.dirname(this_dir), "install.sh")
+
+        if os.path.exists(local_install):
+            self.log("Using local install.sh...")
+            shutil.copy(local_install, install_script)
+            os.chmod(install_script, 0o755)
+        else:
+            self.log("Downloading install.sh from GitHub...")
+            result = subprocess.run(
+                [
+                    "curl",
+                    "-sSL",
+                    "https://raw.githubusercontent.com/tim-projects/tasks-ai/main/install.sh",
+                    "-o",
+                    install_script,
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                self.error(f"Failed to download install.sh: {result.stderr}")
+            os.chmod(install_script, 0o755)
+
+        if mode == "system":
+            self.log("System-wide installation detected. Running with sudo...")
+            result = subprocess.run(
+                ["sudo", "bash", install_script, "-g"], capture_output=True, text=True
+            )
+        else:
+            result = subprocess.run(
+                ["bash", install_script, "-u"], capture_output=True, text=True
+            )
+
+        if result.returncode != 0:
+            self.error(f"Upgrade failed: {result.stderr}")
+
+        if self.as_json:
+            self.finish({"success": True, "mode": mode, "path": install_path})
+        else:
+            self.log("✅ Upgrade complete!")
+            self.log(f"Installed to: {install_path}")
