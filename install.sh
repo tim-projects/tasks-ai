@@ -67,6 +67,8 @@ remove_existing() {
 echo "Checking for existing installations..."
 remove_existing "$HOME/.local/bin/tasks-ai"
 remove_existing "/usr/local/bin/tasks-ai"
+remove_existing "$HOME/.local/bin/repo"
+remove_existing "/usr/local/bin/repo"
 echo "Done."
 
 # Handle uninstall
@@ -82,7 +84,7 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 # Define source and destination
-SOURCE_FILES=("tasks.py" "tasks_ai")
+SOURCE_FILES=("tasks.py" "tasks_ai" "repo")
 DEST_DIR="$DEST_DIR"
 
 # Ensure destination directory exists
@@ -104,11 +106,18 @@ done
 # Set executable for the entry point
 chmod +x "$DEST_DIR/tasks.py"
 
-# Create a symlink for easy access
 if [ -L "$DEST_DIR/tasks-ai" ]; then
     rm "$DEST_DIR/tasks-ai"
 fi
 ln -s "$DEST_DIR/tasks.py" "$DEST_DIR/tasks-ai"
+
+if [ -f "$DEST_DIR/repo" ]; then
+    chmod +x "$DEST_DIR/repo"
+fi
+if [ -L "$DEST_DIR/repo" ]; then
+    rm "$DEST_DIR/repo"
+fi
+ln -s "$DEST_DIR/repo" "$DEST_DIR/r"
 
 echo "--------------------------------------------------"
 echo "Installation complete!"

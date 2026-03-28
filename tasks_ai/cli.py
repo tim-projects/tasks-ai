@@ -85,6 +85,14 @@ class TasksCLI:
         cwd = cwd or self.root
         return subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True)
 
+    def _run_repo(self, args, cwd=None):
+        cwd = cwd or self.root
+        repo_path = os.path.join(self.root, "repo")
+        result = subprocess.run(
+            [repo_path] + args, cwd=cwd, capture_output=True, text=True
+        )
+        return result
+
     def _parse_filename(self, name):
         name_part = name.rsplit(".", 1)[0]
         if "-" in name_part:
@@ -805,7 +813,7 @@ class TasksCLI:
                 return False
             if not t.parts.get("plan") or len(t.parts.get("plan", "").strip()) < 10:
                 return False
-            type_part, _ = fn.rsplit(".", 1)[0].split("-", 1)
+            type_part, _ = self._parse_filename(fn)
             if type_part == "issue":
                 if (
                     not t.parts.get("repro")
