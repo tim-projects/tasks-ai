@@ -6,12 +6,12 @@ Usage: repo <command> [args]
 Commands:
   merge <src> to <target>    - Merge src branch into target with compliance checks.
                                <src> can be 'current', a task ID (e.g. '23'), or branch name.
-  sync [branches...]         - Sync branches in order: testing → staging → main
+  promote <src>              - Promote src through the pipeline: Task -> testing -> staging -> main.
+                               <src> can be 'current', a task ID, or a pipeline branch.
+  sync                       - Sync branches in order: testing → staging → main
   status                     - Show current branch and pending changes
   git <args>                 - Run git command
   branch list                - List all branches
-  branch create <name>       - Create and switch to new branch
-  branch delete <name>       - Delete local branch
   push                       - Push current branch to origin
   commit <message>           - Add all changes and commit with message (runs compliance)
   cleanup                    - Run tasks cleanup
@@ -51,6 +51,8 @@ NC = "\033[0m"
 
 FLAGS = {"yes": False, "quiet": False, "json": False}
 
+PIPELINE = ["testing", "staging", "main"]
+
 def log(msg):
     if not FLAGS["quiet"]: print(f"{GREEN}[repo]{NC} {msg}")
 
@@ -72,7 +74,9 @@ def run(cmd, check=True, capture=False, env=None, cwd=None):
         return subprocess.run(cmd, check=check, capture_output=capture, text=True, env=env, cwd=cwd)
     except subprocess.CalledProcessError as e:
         if check:
-            error(f"Command failed: {' '.join(cmd)}\n{e.stderr if capture else ''}")
+            # For capture=True, the error message is in e.stderr
+            err_msg = e.stderr if capture else ""
+            error(f"Command failed: {' '.join(cmd)}\n{err_msg}")
         raise
 
 def get_current_branch():
@@ -100,12 +104,21 @@ class ToolRunner:
             if not tool: continue
             log(f"Running {t} ({tool})...")
             try:
-                # Direct call to avoid sys.exit
-                self.cli.run_tool(t, fix=fix)
+                # Mock sys.exit for cli.run_tool
+                original_exit = sys.exit
+                sys.exit = lambda x: None
+                try:
+                    self.cli.run_tool(t, fix=fix)
+                finally:
+                    sys.exit = original_exit
             except Exception as e:
                 warn(f"{t} failed: {e}")
                 all_passed = False
         return all_passed
+
+def branch_exists(name):
+    res = run(["git", "rev-parse", "--verify", name], check=False, capture=True)
+    return res.returncode == 0
 
 def resolve_branch(name):
     """Resolve 'current', task ID, or name to a full branch name."""
@@ -120,30 +133,52 @@ def resolve_branch(name):
             return os.path.basename(path)
     
     # Check if exists as is
-    res = run(["git", "rev-parse", "--verify", name], check=False, capture=True)
-    if res.returncode == 0:
+    if branch_exists(name):
         return name
     
     error(f"Could not resolve branch: {name}")
 
+def ensure_pipeline_branch(name):
+    if branch_exists(name):
+        return
+    
+    if name not in PIPELINE:
+        error(f"Branch {name} does not exist and is not a pipeline branch.")
+    
+    # Create from next in pipeline or main
+    idx = PIPELINE.index(name)
+    base = "main"
+    if idx + 1 < len(PIPELINE):
+        base = PIPELINE[idx+1]
+    
+    if not branch_exists(base):
+        if base == "main" and branch_exists("master"):
+            base = "master"
+        else:
+            error(f"Cannot create {name}: base branch {base} not found.")
+            
+    log(f"Creating pipeline branch {name} from {base}...")
+    run(["git", "checkout", "-b", name, base])
+    run(["git", "checkout", "-"]) # Return
+
 def cmd_merge(src_input, target):
     src = resolve_branch(src_input)
+    ensure_pipeline_branch(target)
     
-    info(f"Preparing to merge {src} → {target}")
+    info(f"Merging {src} → {target}")
     
     current = get_current_branch()
     
-    # 1. Validation
     if src == target:
         error(f"Source and target are the same: {src}")
     
-    # 2. Pre-merge checks on src
+    # 1. Pre-merge checks on src
     if current != src:
         if prompt_yes_no(f"Switch to {src} for compliance checks?"):
             run(["git", "checkout", src])
             current = src
         else:
-            error(f"Merge cancelled. Must be on {src} or {target}.")
+            error(f"Merge cancelled. Must be on {src} to run validation.")
 
     # Check clean
     st = run(["git", "status", "--porcelain"], capture=True).stdout.strip()
@@ -155,7 +190,7 @@ def cmd_merge(src_input, target):
     if not ToolRunner().run_validation(fix=True):
         error("Compliance failed. Fix issues before merging.")
 
-    # 3. Perform Merge
+    # 2. Perform Merge
     log(f"Merging {src} into {target}...")
     run(["git", "checkout", target])
     # Pull both to be safe
@@ -168,20 +203,40 @@ def cmd_merge(src_input, target):
         print(merge_res.stderr)
         error("Please resolve conflicts manually, then finish the merge and push.")
 
-    # 4. Push
+    # 3. Push
     if prompt_yes_no(f"Push {target} to origin?"):
         run(["git", "push", "origin", target])
     
-    # 5. Cleanup / Return
+    # 4. Cleanup / Return
     if prompt_yes_no(f"Switch back to {src}?"):
         run(["git", "checkout", src])
 
     log(f"✅ Successfully merged {src} → {target}")
 
+def cmd_promote(src_input):
+    src = resolve_branch(src_input)
+    
+    # Determine target
+    if src == "testing":
+        target = "staging"
+    elif src == "staging":
+        target = "main"
+    elif src == "main" or src == "master":
+        error("Cannot promote main/master branch further.")
+    else:
+        # It's a feature branch, promote to testing
+        target = "testing"
+    
+    cmd_merge(src, target)
+    
+    # If it was a feature branch promoted to testing, ask to promote testing to staging etc.
+    if target != "main" and prompt_yes_no(f"Continue promotion from {target} to next stage?"):
+        cmd_promote(target)
+
 def cmd_status():
     branch = get_current_branch()
     info(f"Current branch: {branch}")
-    run(["git", "status"])
+    run(["git", "status"], capture=False)
 
 def main():
     global FLAGS
@@ -200,8 +255,10 @@ def main():
         if len(args) < 4 or args[2] != "to":
             error("Usage: repo merge <src> to <target>")
         cmd_merge(args[1], args[3])
+    elif cmd == "promote":
+        if len(args) < 2: error("Usage: repo promote <src>")
+        cmd_promote(args[1])
     elif cmd == "sync":
-        # Sync Testing -> Staging -> Main
         cmd_merge("testing", "staging")
         cmd_merge("staging", "main")
     elif cmd == "status": cmd_status()
