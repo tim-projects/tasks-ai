@@ -68,7 +68,9 @@ class FM:
             json.dump(task.metadata, f, indent=2)
         
         for name, content in task.parts.items():
-            if name == "content": continue
-            if content is None: continue
+            if name == "content":
+                continue
+            if content is None:
+                continue
             with open(os.path.join(path, f"{name}.md"), "w") as f:
                 f.write(content)

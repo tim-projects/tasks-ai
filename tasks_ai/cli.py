@@ -1806,9 +1806,7 @@ class TasksCLI:
         import shutil
 
         user_dir = os.path.expanduser("~/.local/tasks-ai")
-        user_symlinks = os.path.expanduser("~/.local/bin")
         system_dir = "/opt/tasks-ai"
-        system_symlinks = "/usr/local/bin"
 
         can_write_user = os.access(user_dir, os.W_OK)
         can_write_system = os.access(system_dir, os.W_OK)

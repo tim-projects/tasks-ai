@@ -97,8 +97,6 @@ def test_repo_branch_delete(repo_dir):
 
 def test_repo_merged(repo_dir):
     """Test 'repo merged' command."""
-    res = run_repo(repo_dir, ["git", "branch", "--show-current"])
-    default = res.stdout.strip()
     # merged <src> <target> is not a command, it's used internally but let's check what's available
     pass
 

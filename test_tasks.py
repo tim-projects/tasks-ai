@@ -16,7 +16,8 @@ class TestTasksAI(unittest.TestCase):
         subprocess.run(["git", "init"], cwd=self.repo_dir, capture_output=True)
         subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=self.repo_dir)
         subprocess.run(["git", "config", "user.name", "Test User"], cwd=self.repo_dir)
-        with open(os.path.join(self.repo_dir, "README.md"), "w") as f: f.write("# Test Repo")
+        with open(os.path.join(self.repo_dir, "README.md"), "w") as f:
+            f.write("# Test Repo")
         subprocess.run(["git", "add", "README.md"], cwd=self.repo_dir)
         subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=self.repo_dir)
         self.script_path = os.path.abspath("tasks.py")
@@ -70,7 +71,8 @@ class TestTasksAI(unittest.TestCase):
         for state in ["TESTING", "REVIEW", "STAGING", "LIVE"]:
             _, branch = issue_file.rsplit('.', 1)[0].split('_', 1)
             subprocess.run(["git", "checkout", "-b", branch], cwd=self.repo_dir, capture_output=True)
-            with open(os.path.join(self.repo_dir, "fix.txt"), "a") as f: f.write("fixed\n")
+            with open(os.path.join(self.repo_dir, "fix.txt"), "a") as f:
+                f.write("fixed\n")
             subprocess.run(["git", "add", "fix.txt"], cwd=self.repo_dir, capture_output=True)
             subprocess.run(["git", "commit", "-m", "Work"], cwd=self.repo_dir, capture_output=True)
             subprocess.run(["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True)
@@ -96,7 +98,8 @@ class TestTasksAI(unittest.TestCase):
         
         _, branch = file.rsplit('.', 1)[0].split('_', 1)
         subprocess.run(["git", "checkout", "-b", branch], cwd=self.repo_dir, capture_output=True)
-        with open(os.path.join(self.repo_dir, "code.txt"), "w") as f: f.write("code")
+        with open(os.path.join(self.repo_dir, "code.txt"), "w") as f:
+            f.write("code")
         subprocess.run(["git", "add", "code.txt"], cwd=self.repo_dir, capture_output=True)
         subprocess.run(["git", "commit", "-m", "Work"], cwd=self.repo_dir, capture_output=True)
         subprocess.run(["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True)
@@ -107,7 +110,8 @@ class TestTasksAI(unittest.TestCase):
         # Backdate log
         log_path = os.path.join(self.repo_dir, "tasks", "logs", file)
         old_date = (datetime.now() - timedelta(days=8)).strftime('%y%m%d %H:%M')
-        with open(log_path, "w") as f: f.write(f"- {old_date}: STAGING->LIVE\n")
+        with open(log_path, "w") as f:
+            f.write(f"- {old_date}: STAGING->LIVE\n")
             
         res = self.run_cmd(["list"])
         self.assertIn(f"Auto-archiving: {file}", res["messages"], res)

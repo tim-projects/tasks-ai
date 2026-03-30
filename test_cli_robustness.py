@@ -71,7 +71,8 @@ class TestCLIRobustness(unittest.TestCase):
         # But we want to see it fail if it's missing.
         
         # Create a change to commit
-        with open(os.path.join(self.repo_dir, "change.txt"), "w") as f: f.write("change")
+        with open(os.path.join(self.repo_dir, "change.txt"), "w") as f:
+            f.write("change")
         
         # Run repo commit - should fail because ruff is missing (unless installed)
         # We can simulate failure by pointing to a non-existent command if needed

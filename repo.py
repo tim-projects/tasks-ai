@@ -85,11 +85,14 @@ def get_current_branch():
     return run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture=True).stdout.strip()
 
 def prompt_yes_no(prompt):
-    if FLAGS["yes"]: return True
+    if FLAGS["yes"]:
+        return True
     while True:
         res = input(f"{prompt} [y/n] ").strip().lower()
-        if res in ["y", "yes"]: return True
-        if res in ["n", "no"]: return False
+        if res in ["y", "yes"]:
+            return True
+        if res in ["n", "no"]:
+            return False
 
 class ToolRunner:
     def __init__(self):
