@@ -9,6 +9,7 @@ from tasks_ai.cli import TasksCLI
 @pytest.fixture
 def setup_tasks():
     # Setup a temp environment
+    sys._called_from_test = True
     test_dir = tempfile.mkdtemp()
     repo_dir = os.path.join(test_dir, "repo")
     os.makedirs(repo_dir)
@@ -30,6 +31,7 @@ def setup_tasks():
     # Cleanup
     os.chdir(old_cwd)
     shutil.rmtree(test_dir)
+    del sys._called_from_test
 
 def test_create_and_modify(setup_tasks):
     cli = setup_tasks
@@ -40,7 +42,7 @@ def test_create_and_modify(setup_tasks):
         criteria=["Pass"], 
         plan=["Step 1"]
     )
-    task_id = "1" # Should be 1
+    task_id = "1" 
     filepath, state = cli.find_task(task_id)
     assert state == "BACKLOG"
     assert filepath is not None
