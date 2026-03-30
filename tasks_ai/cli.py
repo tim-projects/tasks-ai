@@ -13,14 +13,6 @@ import fcntl
 from datetime import datetime, timedelta
 from pathlib import Path
 
-
-def get_terminal_width():
-    try:
-        return os.get_terminal_size().columns
-    except OSError:
-        return 80
-
-
 from .constants import (
     TASKS_DIR,
     TASKS_BRANCH,
@@ -31,6 +23,13 @@ from .constants import (
 )
 from .models import Task
 from .file_manager import FM
+
+
+def get_terminal_width():
+    try:
+        return os.get_terminal_size().columns
+    except OSError:
+        return 80
 
 
 class TasksCLI:

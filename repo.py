@@ -53,10 +53,12 @@ FLAGS = {"yes": False, "quiet": False, "json": False}
 PIPELINE = ["testing", "staging", "main"]
 
 def log(msg):
-    if not FLAGS["quiet"]: print(f"{GREEN}[repo]{NC} {msg}")
+    if not FLAGS["quiet"]:
+        print(f"{GREEN}[repo]{NC} {msg}")
 
 def warn(msg):
-    if not FLAGS["quiet"]: print(f"{YELLOW}[repo] WARN:{NC} {msg}")
+    if not FLAGS["quiet"]:
+        print(f"{YELLOW}[repo] WARN:{NC} {msg}")
 
 def error(msg):
     if FLAGS["json"]:
@@ -66,7 +68,8 @@ def error(msg):
     sys.exit(1)
 
 def info(msg):
-    if not FLAGS["quiet"]: print(f"{CYAN}[repo]{NC} {msg}")
+    if not FLAGS["quiet"]:
+        print(f"{CYAN}[repo]{NC} {msg}")
 
 def run(cmd, check=True, capture=False, env=None, cwd=None):
     try:
@@ -251,13 +254,21 @@ def main():
     global FLAGS
     args = []
     for arg in sys.argv[1:]:
-        if arg in ["-y", "--yes"]: FLAGS["yes"] = True
-        elif arg in ["-q", "--quiet"]: FLAGS["quiet"] = True
-        elif arg in ["-j", "--json"]: FLAGS["json"] = True
-        elif arg in ["-h", "--help"]: print(__doc__); return
-        else: args.append(arg)
+        if arg in ["-y", "--yes"]:
+            FLAGS["yes"] = True
+        elif arg in ["-q", "--quiet"]:
+            FLAGS["quiet"] = True
+        elif arg in ["-j", "--json"]:
+            FLAGS["json"] = True
+        elif arg in ["-h", "--help"]:
+            print(__doc__)
+            return
+        else:
+            args.append(arg)
 
-    if not args: print(__doc__); return
+    if not args:
+        print(__doc__)
+        return
     cmd = args[0]
 
     if cmd == "merge":
@@ -265,15 +276,18 @@ def main():
             error("Usage: repo merge <src> to <target>")
         cmd_merge(args[1], args[3])
     elif cmd == "promote":
-        if len(args) < 2: error("Usage: repo promote <src>")
+        if len(args) < 2:
+            error("Usage: repo promote <src>")
         cmd_promote(args[1])
     elif cmd == "sync":
         cmd_merge("testing", "staging")
         cmd_merge("staging", "main")
-    elif cmd == "status": cmd_status()
+    elif cmd == "status":
+        cmd_status()
     elif cmd == "commit":
         msg = " ".join(args[1:]) if len(args) > 1 else None
-        if not msg: error("Message required")
+        if not msg:
+            error("Message required")
         if not ToolRunner().run_validation(fix=True):
             error("Compliance failed. Changes not committed.")
         run(["git", "add", "."])
@@ -281,14 +295,20 @@ def main():
     elif cmd == "push":
         b = get_current_branch()
         run(["git", "push", "origin", b])
-    elif cmd == "git": run(["git"] + args[1:], capture=False)
+    elif cmd == "git":
+        run(["git"] + args[1:], capture=False)
     elif cmd == "branch":
         sub = args[1] if len(args) > 1 else "list"
-        if sub == "list": run(["git", "branch", "-a"], capture=False)
-        elif sub == "create": run(["git", "checkout", "-b", args[2]])
-        elif sub == "delete": run(["git", "branch", "-d", args[2]])
-    elif cmd == "cleanup": run(["python3", "tasks.py", "cleanup"] + args[1:])
-    else: error(f"Unknown command: {cmd}")
+        if sub == "list":
+            run(["git", "branch", "-a"], capture=False)
+        elif sub == "create":
+            run(["git", "checkout", "-b", args[2]])
+        elif sub == "delete":
+            run(["git", "branch", "-d", args[2]])
+    elif cmd == "cleanup":
+        run(["python3", "tasks.py", "cleanup"] + args[1:])
+    else:
+        error(f"Unknown command: {cmd}")
 
 if __name__ == "__main__":
     main()
