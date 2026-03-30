@@ -38,11 +38,17 @@ def load_config():
     config_path_yaml = os.path.join(ROOT, ".tasks", "config.yaml")
     config_path_toml = os.path.join(ROOT, "pyproject.toml")
 
+    print(f"DEBUG: ROOT={ROOT}", file=sys.stderr)
+    print(f"DEBUG: YAML_PATH={config_path_yaml} (exists={os.path.exists(config_path_yaml)})", file=sys.stderr)
+
     config = {}
     if os.path.exists(config_path_yaml):
         try:
             with open(config_path_yaml, "r") as f:
-                config.update(yaml.safe_load(f) or {})
+                content = f.read()
+                print(f"DEBUG: YAML_CONTENT=\n{content}", file=sys.stderr)
+                data = yaml.safe_load(content) or {}
+                config.update(data)
         except Exception as e:
             print(f"Warning: Could not parse {config_path_yaml}: {e}", file=sys.stderr)
 
