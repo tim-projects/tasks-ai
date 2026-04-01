@@ -1,0 +1,1 @@
+As a user I want to ensure that file writes are atomic to prevent data corruption during crashes.

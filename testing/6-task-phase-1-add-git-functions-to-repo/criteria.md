@@ -1,0 +1,1 @@
+Repo tool automates merges and runs validation.

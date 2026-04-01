@@ -1,0 +1,1 @@
+Documentation covers installation, git, and file corruption issues.

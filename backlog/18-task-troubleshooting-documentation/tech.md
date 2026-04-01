@@ -1,0 +1,1 @@
+Create docs/TROUBLESHOOTING.md with diagnostic steps.

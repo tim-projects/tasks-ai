@@ -1,0 +1,1 @@
+Ensure CLI correctly reads from stdin when flags are missing or '-' is used.

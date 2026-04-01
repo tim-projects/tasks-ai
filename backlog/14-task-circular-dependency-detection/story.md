@@ -1,0 +1,1 @@
+As a user I want to be warned or prevented from creating dependency cycles between tasks.

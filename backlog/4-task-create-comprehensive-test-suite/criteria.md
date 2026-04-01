@@ -1,0 +1,1 @@
+All commands are tested; test coverage is high.

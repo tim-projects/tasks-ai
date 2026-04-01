@@ -1,0 +1,1 @@
+As a user I want to create a task by providing a path to an existing markdown file.

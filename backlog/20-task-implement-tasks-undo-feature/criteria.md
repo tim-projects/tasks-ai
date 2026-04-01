@@ -1,0 +1,1 @@
+The 'tasks undo' command reverts the last atomic task operation correctly.

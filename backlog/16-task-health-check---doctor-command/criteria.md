@@ -1,0 +1,1 @@
+The doctor command reports all data inconsistencies and offers fixes.

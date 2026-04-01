@@ -1,0 +1,1 @@
+As a developer I want a robust test suite covering all CLI commands and edge cases.

@@ -1,0 +1,1 @@
+Tasks are created/modified correctly with piped data.

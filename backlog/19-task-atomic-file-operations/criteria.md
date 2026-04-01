@@ -1,0 +1,1 @@
+All task and metadata files are written atomically.

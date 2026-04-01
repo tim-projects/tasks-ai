@@ -1,0 +1,1 @@
+IDs and paths are strictly validated; invalid inputs are rejected with helpful errors.

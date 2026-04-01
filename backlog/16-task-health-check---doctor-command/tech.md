@@ -1,0 +1,1 @@
+Implement 'tasks doctor' to verify file structure, metadata validity, and branch status.

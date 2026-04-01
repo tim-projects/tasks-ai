@@ -1,0 +1,1 @@
+Support stdin reading for task content.

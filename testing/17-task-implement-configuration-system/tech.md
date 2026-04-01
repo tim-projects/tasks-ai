@@ -1,0 +1,1 @@
+Implement 'tasks config' with support for namespaces and persistence.

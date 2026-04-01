@@ -1,0 +1,1 @@
+As a developer I want to ensure that newly created tasks have all mandatory fields and sufficient content.

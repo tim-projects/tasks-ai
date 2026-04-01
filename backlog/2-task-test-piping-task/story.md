@@ -1,0 +1,1 @@
+As a user I want to test that tasks can be created and modified using piped input.

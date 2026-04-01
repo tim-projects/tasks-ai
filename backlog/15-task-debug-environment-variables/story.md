@@ -1,0 +1,1 @@
+As a developer I want to use environment variables to enable verbose logging for troubleshooting.

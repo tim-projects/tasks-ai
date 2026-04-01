@@ -1,0 +1,1 @@
+Config is saved to .tasks/config.yaml and correctly loaded.

@@ -1,0 +1,1 @@
+Cycles are detected and reported; new links that create cycles are rejected.

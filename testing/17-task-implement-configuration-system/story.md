@@ -1,0 +1,1 @@
+As a user I want a structured configuration system to manage tool settings.

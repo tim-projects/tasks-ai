@@ -1,0 +1,1 @@
+As a developer I want to simplify the tasks-ai codebase to focus purely on task lifecycle management.

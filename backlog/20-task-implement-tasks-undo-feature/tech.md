@@ -1,0 +1,1 @@
+Leverage git reflog or a custom undo log to identify the previous state and revert files.

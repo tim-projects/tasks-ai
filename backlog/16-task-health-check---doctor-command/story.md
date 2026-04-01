@@ -1,0 +1,1 @@
+As a user I want a command to diagnose the integrity of my task data and git state.

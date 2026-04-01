@@ -1,0 +1,1 @@
+As a user I want to verify that bug fix task titles are handled correctly by the system.

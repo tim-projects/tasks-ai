@@ -1,0 +1,1 @@
+Use tempfile + rename pattern for all file writes in FM class.

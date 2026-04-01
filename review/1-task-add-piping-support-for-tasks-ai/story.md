@@ -1,0 +1,1 @@
+Initial implementation of piping support for CLI commands.

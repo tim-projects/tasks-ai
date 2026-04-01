@@ -1,0 +1,1 @@
+Remove redundant git logic and focus on state transitions and metadata.

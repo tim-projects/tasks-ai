@@ -1,0 +1,1 @@
+Implement quality gates in 'create' command to check for story, tech, criteria, and plan.

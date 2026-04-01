@@ -1,0 +1,1 @@
+Implement atomic file locking on the task counter file.
