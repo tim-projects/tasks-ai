@@ -1,1 +1,0 @@
-Verification of bug fix task handling in complex scenarios.
