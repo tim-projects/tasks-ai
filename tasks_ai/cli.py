@@ -73,13 +73,14 @@ class TasksCLI:
         # Now that self.tasks_path is set, we can check .tasks/config.yaml if not in dev mode
         if not dev:
             cfg = self._get_config()
-            if "tasks_dir" in cfg:
-                self.tasks_dir = cfg["tasks_dir"]
-                if os.path.isabs(self.tasks_dir):
-                    self.tasks_path = self.tasks_dir
-                else:
-                    self.tasks_path = os.path.join(self.root, self.tasks_dir)
-
+            if cfg and isinstance(cfg, dict) and "tasks_dir" in cfg:
+                td = cfg["tasks_dir"]
+                if td:
+                    self.tasks_dir = str(td)
+                    if os.path.isabs(self.tasks_dir):
+                        self.tasks_path = self.tasks_dir
+                    else:
+                        self.tasks_path = os.path.join(self.root, self.tasks_dir)
         self.logs_path = os.path.join(self.tasks_path, "logs")
         if os.path.exists(self.tasks_path):
             self._auto_archive()
