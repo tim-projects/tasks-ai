@@ -3,18 +3,19 @@ import os
 import json
 from .models import Task
 
+
 class FM:
     @staticmethod
     def load(path):
         if not os.path.exists(path):
             return Task()
-        
+
         if os.path.isfile(path):
             with open(path, "r", encoding="utf-8") as f:
                 content = f.read()
             if not content.startswith("---"):
                 return Task(parts={"content": content})
-            
+
             meta = {}
             lines = content.splitlines()
             content_start = -1
@@ -27,12 +28,19 @@ class FM:
                     k, v = [s.strip() for s in line.split(":", 1)]
                     if v.startswith("[") and v.endswith("]"):
                         inner = v[1:-1].strip()
-                        meta[k] = [item.strip().strip("'").strip('"') for item in inner.split(",")] if inner else []
+                        meta[k] = (
+                            [
+                                item.strip().strip("'").strip('"')
+                                for item in inner.split(",")
+                            ]
+                            if inner
+                            else []
+                        )
                     elif v.isdigit():
                         meta[k] = int(v)
                     else:
                         meta[k] = v.strip("'").strip('"')
-            
+
             body = "\n".join(lines[content_start:]) if content_start != -1 else ""
             return Task(metadata=meta, parts={"content": body})
 
@@ -41,7 +49,7 @@ class FM:
         if os.path.exists(meta_path):
             with open(meta_path, "r") as f:
                 meta = json.load(f)
-        
+
         parts = {}
         for f in os.listdir(path):
             if f.endswith(".md"):
@@ -57,7 +65,11 @@ class FM:
             with open(path, "w") as f:
                 f.write("---\n")
                 for k, v in task.metadata.items():
-                    val = "[" + ", ".join(f'"{item}"' for item in v) + "]" if isinstance(v, list) else v
+                    val = (
+                        "[" + ", ".join(f'"{item}"' for item in v) + "]"
+                        if isinstance(v, list)
+                        else v
+                    )
                     f.write(f"{k}: {val}\n")
                 f.write("---\n\n")
                 f.write(task.parts.get("content", task.content))
@@ -66,7 +78,7 @@ class FM:
         os.makedirs(path, exist_ok=True)
         with open(os.path.join(path, "meta.json"), "w") as f:
             json.dump(task.metadata, f, indent=2)
-        
+
         for name, content in task.parts.items():
             if name == "content":
                 continue

@@ -33,12 +33,53 @@ def get_terminal_width():
 
 
 class TasksCLI:
-    def __init__(self, as_json=False, command=None, quiet=False):
+    def __init__(self, as_json=False, command=None, quiet=False, dev=False):
         self.as_json = as_json
         self.quiet = quiet
+        self.dev = dev
         self.output_messages = []
         self.root = self._get_git_root()
-        self.tasks_path = os.path.join(self.root, TASKS_DIR)
+
+        # Determine tasks directory
+        self.tasks_dir = TASKS_DIR
+        if dev:
+            self.tasks_dir = "/tmp/.tasks"
+            if not os.path.exists(self.tasks_dir):
+                os.makedirs(self.tasks_dir, exist_ok=True)
+        else:
+            # Check pyproject.toml for override first
+            pyproject_path = os.path.join(self.root, "pyproject.toml")
+            if os.path.exists(pyproject_path):
+                try:
+                    import toml
+
+                    with open(pyproject_path, "r") as f:
+                        pyproject_data = toml.load(f)
+                        self.tasks_dir = (
+                            pyproject_data.get("tool", {})
+                            .get("tasks_ai", {})
+                            .get("tasks_dir", self.tasks_dir)
+                        )
+                except ImportError:
+                    pass
+                except Exception:
+                    pass
+
+        if os.path.isabs(self.tasks_dir):
+            self.tasks_path = self.tasks_dir
+        else:
+            self.tasks_path = os.path.join(self.root, self.tasks_dir)
+
+        # Now that self.tasks_path is set, we can check .tasks/config.yaml if not in dev mode
+        if not dev:
+            cfg = self._get_config()
+            if "tasks_dir" in cfg:
+                self.tasks_dir = cfg["tasks_dir"]
+                if os.path.isabs(self.tasks_dir):
+                    self.tasks_path = self.tasks_dir
+                else:
+                    self.tasks_path = os.path.join(self.root, self.tasks_dir)
+
         self.logs_path = os.path.join(self.tasks_path, "logs")
         if os.path.exists(self.tasks_path):
             self._auto_archive()
@@ -84,6 +125,10 @@ class TasksCLI:
         cwd = cwd or self.root
         result = subprocess.run(["git"] + args, cwd=cwd, capture_output=True, text=True)
 
+        # If in dev mode and command fails in tasks_path, it might not be a git repo
+        if result.returncode != 0 and self.dev and cwd == self.tasks_path:
+            return result
+
         if result.returncode == 0:
             cmd = args[0]
             if cmd == "checkout":
@@ -96,7 +141,7 @@ class TasksCLI:
                 msg = ""
                 if "-m" in args:
                     idx = args.index("-m")
-                    msg = f": {args[idx+1]}"
+                    msg = f": {args[idx + 1]}"
                 self.log(f"Git: Committed changes{msg}")
             elif cmd == "add":
                 self.log("Git: Staged changes")
@@ -110,7 +155,7 @@ class TasksCLI:
             elif cmd == "merge":
                 self.log(f"Git: Merged '{args[-1]}'")
             elif cmd == "worktree" and "add" in args:
-                self.log(f"Git: Added worktree at '{args[args.index('add')+1]}'")
+                self.log(f"Git: Added worktree at '{args[args.index('add') + 1]}'")
 
         return result
 
@@ -250,6 +295,23 @@ class TasksCLI:
                     self._move_logic(folder, "ARCHIVED", force=True, yes=False)
 
     def init(self):
+        if self.dev:
+            # For dev mode, just create folders, no git worktree
+            for folder in list(STATE_FOLDERS.values()):
+                p = os.path.join(self.tasks_path, folder)
+                if not os.path.exists(p):
+                    os.makedirs(p, exist_ok=True)
+                    Path(os.path.join(p, ".gitkeep")).touch()
+
+            counter_file = os.path.join(self.tasks_path, ".task_counter")
+            if not os.path.exists(counter_file):
+                with open(counter_file, "w") as f:
+                    f.write("0")
+
+            self.log(f"Dev tasks initialized at {self.tasks_path}")
+            self.finish()
+            return
+
         original_branch = self._run_git(["branch", "--show-current"]).stdout.strip()
         branches = self._run_git(["branch"]).stdout
         if TASKS_BRANCH not in branches:
@@ -272,7 +334,7 @@ class TasksCLI:
                     shutil.rmtree(self.tasks_path)
                 else:
                     os.remove(self.tasks_path)
-            self._run_git(["worktree", "add", TASKS_DIR, TASKS_BRANCH])
+            self._run_git(["worktree", "add", self.tasks_path, TASKS_BRANCH])
         for folder in list(STATE_FOLDERS.values()):
             p = os.path.join(self.tasks_path, folder)
             if not os.path.exists(p):
@@ -1802,7 +1864,9 @@ class TasksCLI:
                     print(result.stdout)
                     sys.exit(1)
             except json.JSONDecodeError:
-                self.error(f"Validation failed with exit code {result.returncode}\n{result.stdout}\n{result.stderr}")
+                self.error(
+                    f"Validation failed with exit code {result.returncode}\n{result.stdout}\n{result.stderr}"
+                )
         else:
             # In plain mode, check.py prints directly to stdout/stderr
             print(result.stdout)

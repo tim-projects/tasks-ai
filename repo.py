@@ -48,17 +48,20 @@ YELLOW = "\033[1;33m"
 CYAN = "\033[0;36m"
 NC = "\033[0m"
 
-FLAGS = {"yes": False, "quiet": False, "json": False}
+FLAGS = {"yes": False, "quiet": False, "json": False, "dev": False}
 
 PIPELINE = ["testing", "staging", "main"]
+
 
 def log(msg):
     if not FLAGS["quiet"]:
         print(f"{GREEN}[repo]{NC} {msg}")
 
+
 def warn(msg):
     if not FLAGS["quiet"]:
         print(f"{YELLOW}[repo] WARN:{NC} {msg}")
+
 
 def error(msg):
     if FLAGS["json"]:
@@ -67,13 +70,17 @@ def error(msg):
         print(f"{RED}[repo] ERROR:{NC} {msg}")
     sys.exit(1)
 
+
 def info(msg):
     if not FLAGS["quiet"]:
         print(f"{CYAN}[repo]{NC} {msg}")
 
+
 def run(cmd, check=True, capture=False, env=None, cwd=None):
     try:
-        return subprocess.run(cmd, check=check, capture_output=capture, text=True, env=env, cwd=cwd)
+        return subprocess.run(
+            cmd, check=check, capture_output=capture, text=True, env=env, cwd=cwd
+        )
     except subprocess.CalledProcessError as e:
         if check:
             # For capture=True, the error message is in e.stderr
@@ -81,8 +88,12 @@ def run(cmd, check=True, capture=False, env=None, cwd=None):
             error(f"Command failed: {' '.join(cmd)}\n{err_msg}")
         raise
 
+
 def get_current_branch():
-    return run(["git", "rev-parse", "--abbrev-ref", "HEAD"], capture=True).stdout.strip()
+    return run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture=True
+    ).stdout.strip()
+
 
 def prompt_yes_no(prompt):
     if FLAGS["yes"]:
@@ -94,11 +105,12 @@ def prompt_yes_no(prompt):
         if res in ["n", "no"]:
             return False
 
+
 class ToolRunner:
     def __init__(self):
         pass
 
-    def run_validation(self, fix=False):
+    def run_validation(self, fix=False, dev=False):
         check_py = os.path.join(os.getcwd(), "check.py")
         if not os.path.exists(check_py):
             warn("check.py not found, skipping tool validation")
@@ -107,19 +119,21 @@ class ToolRunner:
         tools = ["format", "lint", "typecheck", "test"]
         all_passed = True
         for t in tools:
-            # We still need to know if it's configured. 
+            # We still need to know if it's configured.
             # check.py handles the config check itself and returns 1 if not configured.
             # But we only want to fail if it IS configured and FAILS.
             # Wait, if it's NOT configured, check.py prints an error and returns 1.
             # We should probably only run 'all' if we want to check everything.
             pass
-        
+
         # Simpler: just run 'check all'
         log("Running codebase validation (check all)...")
         cmd = [sys.executable, check_py, "all"]
         if fix:
             cmd.append("--fix")
-        
+        if dev:
+            cmd.append("--dev")
+
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
             print(result.stdout)
@@ -128,65 +142,69 @@ class ToolRunner:
             all_passed = False
         else:
             log("✅ Validation passed")
-            
+
         return all_passed
+
 
 def branch_exists(name):
     res = run(["git", "rev-parse", "--verify", name], check=False, capture=True)
     return res.returncode == 0
 
+
 def resolve_branch(name):
     """Resolve 'current', task ID, or name to a full branch name."""
     if name == "current":
         return get_current_branch()
-    
+
     # Check if task ID
     if name.isdigit() and TasksCLI:
-        cli = TasksCLI(quiet=True)
+        cli = TasksCLI(quiet=True, dev=FLAGS["dev"])
         path, _ = cli.find_task(name)
         if path:
             return os.path.basename(path)
-    
+
     # Check if exists as is
     if branch_exists(name):
         return name
-    
+
     error(f"Could not resolve branch: {name}")
+
 
 def ensure_pipeline_branch(name):
     if branch_exists(name):
         return
-    
+
     if name not in PIPELINE:
         error(f"Branch {name} does not exist and is not a pipeline branch.")
-    
+
     # Create from next in pipeline or main
     idx = PIPELINE.index(name)
     base = "main"
     if idx + 1 < len(PIPELINE):
-        base = PIPELINE[idx+1]
-    
+        base = PIPELINE[idx + 1]
+
     if not branch_exists(base):
         if base == "main" and branch_exists("master"):
             base = "master"
         else:
             error(f"Cannot create {name}: base branch {base} not found.")
-            
+
     log(f"Creating pipeline branch {name} from {base}...")
     run(["git", "checkout", "-b", name, base])
-    run(["git", "checkout", "-"]) # Return
+    run(["git", "checkout", "-"])  # Return
+
 
 def cmd_merge(src_input, target):
     src = resolve_branch(src_input)
     ensure_pipeline_branch(target)
-    
+
     info(f"Merging {src} → {target}")
-    
+
     current = get_current_branch()
-    
+
     if src == target:
         error(f"Source and target are the same: {src}")
-    
+
     # 1. Pre-merge checks on src
     if current != src:
         if prompt_yes_no(f"Switch to {src} for compliance checks?"):
@@ -202,7 +220,7 @@ def cmd_merge(src_input, target):
 
     # Run compliance
     log("Running compliance checks...")
-    if not ToolRunner().run_validation(fix=True):
+    if not ToolRunner().run_validation(fix=True, dev=FLAGS["dev"]):
         error("Compliance failed. Fix issues before merging.")
 
     # 2. Perform Merge
@@ -210,8 +228,12 @@ def cmd_merge(src_input, target):
     run(["git", "checkout", target])
     # Pull both to be safe
     run(["git", "pull", "origin", target], check=False)
-    
-    merge_res = run(["git", "merge", src, "-m", f"merge: {src} into {target} (automated)"], check=False, capture=True)
+
+    merge_res = run(
+        ["git", "merge", src, "-m", f"merge: {src} into {target} (automated)"],
+        check=False,
+        capture=True,
+    )
     if merge_res.returncode != 0:
         warn("Merge conflict detected!")
         print(merge_res.stdout)
@@ -221,16 +243,17 @@ def cmd_merge(src_input, target):
     # 4. Push
     if prompt_yes_no(f"Push {target} to origin?"):
         run(["git", "push", "origin", target])
-    
+
     # 5. Cleanup / Return
     if prompt_yes_no(f"Switch back to {src}?"):
         run(["git", "checkout", src])
 
     log(f"✅ Successfully merged {src} → {target}")
 
+
 def cmd_promote(src_input):
     src = resolve_branch(src_input)
-    
+
     # Determine target
     if src == "testing":
         target = "staging"
@@ -241,17 +264,21 @@ def cmd_promote(src_input):
     else:
         # It's a feature branch, promote to testing
         target = "testing"
-    
+
     cmd_merge(src, target)
-    
+
     # If it was a feature branch promoted to testing, ask to promote testing to staging etc.
-    if target != "main" and prompt_yes_no(f"Continue promotion from {target} to next stage?"):
+    if target != "main" and prompt_yes_no(
+        f"Continue promotion from {target} to next stage?"
+    ):
         cmd_promote(target)
+
 
 def cmd_status():
     branch = get_current_branch()
     info(f"Current branch: {branch}")
     run(["git", "status"], capture=False)
+
 
 def main():
     global FLAGS
@@ -263,6 +290,8 @@ def main():
             FLAGS["quiet"] = True
         elif arg in ["-j", "--json"]:
             FLAGS["json"] = True
+        elif arg == "--dev":
+            FLAGS["dev"] = True
         elif arg in ["-h", "--help"]:
             print(__doc__)
             return
@@ -291,7 +320,7 @@ def main():
         msg = " ".join(args[1:]) if len(args) > 1 else None
         if not msg:
             error("Message required")
-        if not ToolRunner().run_validation(fix=True):
+        if not ToolRunner().run_validation(fix=True, dev=FLAGS["dev"]):
             error("Compliance failed. Changes not committed.")
         run(["git", "add", "."])
         run(["git", "commit", "-m", msg])
@@ -309,9 +338,13 @@ def main():
         elif sub == "delete":
             run(["git", "branch", "-d", args[2]])
     elif cmd == "cleanup":
-        run(["python3", "tasks.py", "cleanup"] + args[1:])
+        cleanup_args = ["python3", "tasks.py", "cleanup"]
+        if FLAGS["dev"]:
+            cleanup_args.append("--dev")
+        run(cleanup_args + args[1:])
     else:
         error(f"Unknown command: {cmd}")
+
 
 if __name__ == "__main__":
     main()

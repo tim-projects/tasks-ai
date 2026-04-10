@@ -87,13 +87,13 @@ def test_repo_branch_delete(repo_dir):
     """Test 'repo branch delete' command."""
     # Ensure we are not on the branch to delete
     run_repo(repo_dir, ["branch", "create", "to-delete"])
-    
+
     # Create another one to switch to
     run_repo(repo_dir, ["branch", "create", "other"])
-    
+
     res = run_repo(repo_dir, ["branch", "delete", "to-delete"])
     assert res.returncode == 0
-    
+
     res = run_repo(repo_dir, ["git", "branch"])
     assert "to-delete" not in res.stdout
 

@@ -5,11 +5,23 @@ AI Agents should follow these instructions to manage their workflow using the `t
 ## ⚠️ Important: Use Local tasks
 
 This repo has a local `tasks.py` that should be used instead of the system-installed `tasks` binary. The local version may be newer or have modifications.
-Never delete .tasks, if you create tasks for testing you must clean them up afterwards
 
 ```bash
 # Use this repo's version (recommended)
 python tasks.py -j list
+```
+
+### 🛠️ Development & Testing
+
+When testing the tool itself or performing "dry runs" of task operations without affecting the project's real `.tasks` worktree, use the `--dev` flag. This will use `/tmp/.tasks` as an isolated storage directory.
+
+```bash
+# Initialize dev environment
+python tasks.py --dev init
+
+# Run any command in dev mode
+python tasks.py --dev create "Test Task" ...
+python tasks.py --dev list
 ```
 
 ## 🤖 Discovery & Protocol
@@ -43,6 +55,7 @@ Run `python tasks.py --help` to discover the interface, JSON schemas, and operat
 ## ⚠️ Operational Rules
 
 - **Always use `-j`**: Never run commands without the `-j` flag for machine-parseable JSON output.
+- **Use `--dev` for testing**: You MUST use the `--dev` flag for all tool experimentation, "dry runs", or any task operation that is not directly part of the active project's workflow. This protects the real `.tasks` worktree.
 - **No Invisible Work**: Do not modify files unless a task is in the `PROGRESSING` state.
 - **Priority First**: Always pick the task with the lowest `P` (Priority) value first.
 - **Blockers**: If stuck, move the task to `BLOCKED` immediately and document the reason in `current-task.md` before checkpointing.
@@ -68,6 +81,8 @@ Run `python tasks.py --help` to discover the interface, JSON schemas, and operat
 | `python tasks.py show <id> plan` | Show only the plan section |
 | `python tasks.py show <id> repro` | Show only the reproduction steps (for issues) |
 | `python tasks.py show <id> progress` | Show active progress notes |
+| `python tasks.py --dev init` | Initialize isolated dev environment |
+| `python tasks.py --dev <cmd>` | Run any task command in isolated /tmp/.tasks |
 | `python tasks.py move <id> <state>` | Move task to new state (use comma-separated for multi-step) |
 | `python tasks.py move <id> ARCHIVED -y` | Archive and auto-push/delete branch (requires branch merged to main) |
 | `python tasks.py modify <id> --plan "1. Step"` | Update task fields |

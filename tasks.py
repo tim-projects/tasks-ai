@@ -23,6 +23,11 @@ if __name__ == "__main__":
         help="Suppress output (for scripting).",
         default=False,
     )
+    parser.add_argument(
+        "--dev",
+        action="store_true",
+        help="Use /tmp/.tasks instead of project tasks (for development).",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("init", help="Init tasks.")
@@ -152,7 +157,9 @@ if __name__ == "__main__":
         print(f"tasks version {__version__}")
         sys.exit(0)
 
-    cli = TasksCLI(as_json=args.json, command=args.command, quiet=args.quiet)
+    cli = TasksCLI(
+        as_json=args.json, command=args.command, quiet=args.quiet, dev=args.dev
+    )
 
     if args.command == "init":
         cli.init()
