@@ -109,6 +109,21 @@ class TasksCLI:
                 cwd=self.tasks_path,
             )
 
+    def _validate_task_id(self, task_id):
+        """Validate task ID format (numeric or slug)."""
+        if not task_id:
+            return False
+        # Allow numeric IDs or task slugs (e.g., "1-task-title")
+        return bool(re.match(r"^[a-zA-Z0-9\-_.]+$", task_id))
+
+    def _validate_path(self, path):
+        """Ensure path is within tasks_path to prevent traversal."""
+        if not path:
+            return False
+        abs_tasks = os.path.abspath(self.tasks_path)
+        abs_target = os.path.abspath(path)
+        return abs_target.startswith(abs_tasks)
+
     def _get_git_root(self):
         try:
             return (
@@ -395,7 +410,7 @@ class TasksCLI:
         )
 
     def find_task(self, name):
-        if not name:
+        if not name or not self._validate_task_id(name):
             return None, None
         task_id = name.rsplit(".", 1)[0]
 
@@ -423,16 +438,25 @@ class TasksCLI:
         if not matches:
             return None, None
 
+        selected = None
         if len(matches) == 1:
-            return matches[0]
+            selected = matches[0]
+        else:
+            for path, state in matches:
+                if state == "ARCHIVED":
+                    selected = (path, "ARCHIVED")
+                    break
+            if not selected:
+                for path, state in matches:
+                    if state != "BACKLOG":
+                        selected = (path, state)
+                        break
+            if not selected:
+                selected = matches[0]
 
-        for path, state in matches:
-            if state == "ARCHIVED":
-                return path, "ARCHIVED"
-        for path, state in matches:
-            if state != "BACKLOG":
-                return path, state
-        return matches[0]
+        if selected and self._validate_path(selected[0]):
+            return selected
+        return None, None
 
     def _get_next_id(self):
         counter_file = os.path.join(self.tasks_path, ".task_counter")
@@ -482,11 +506,9 @@ class TasksCLI:
                 f"Missing required fields: {', '.join(missing)}. Task not created. These are required to move to PROGRESSING anyway."
             )
 
-        clean_title = "".join(c if c.isalnum() else "-" for c in title.lower()).strip(
-            "-"
-        )
+        clean_title = re.sub(r"[^a-zA-Z0-9]+", "-", title.lower()).strip("-")
         numeric_id = self._get_next_id()
-        task_id = f"{numeric_id}-{task_type}-{clean_title[:30]}"
+        task_id = f"{numeric_id}-{task_type}-{clean_title[:30]}".strip("-")
         task_dir = os.path.join(self.tasks_path, STATE_FOLDERS["BACKLOG"], task_id)
         if self.find_task(task_id)[0]:
             self.error(f"Task {task_id} exists.")
@@ -669,6 +691,8 @@ class TasksCLI:
         filepath, _ = self.find_task(filename)
         if not filepath:
             self.error(f"Task '{filename}' not found.")
+        if not self._validate_path(filepath):
+            self.error(f"Invalid task path: {filepath}")
         task = FM.load(filepath)
         task_id = os.path.basename(filepath).rsplit(".", 1)[0]
         tt, _ = self._parse_filename(os.path.basename(filepath))
