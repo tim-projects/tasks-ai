@@ -621,13 +621,17 @@ class TasksCLI:
             updated = True
         if plan:
             if isinstance(plan, list):
-                task.parts["plan"] = "\n".join(f"{i}. {p}" for i, p in enumerate(plan, 1))
+                task.parts["plan"] = "\n".join(
+                    f"{i}. {p}" for i, p in enumerate(plan, 1)
+                )
             else:
                 task.parts["plan"] = plan
             updated = True
         if repro:
             if isinstance(repro, list):
-                task.parts["repro"] = "\n".join(f"{i}. {r}" for i, r in enumerate(repro, 1))
+                task.parts["repro"] = "\n".join(
+                    f"{i}. {r}" for i, r in enumerate(repro, 1)
+                )
             else:
                 task.parts["repro"] = repro
             updated = True
@@ -686,7 +690,7 @@ class TasksCLI:
         filepath, _ = self.find_task(filename)
         if not filepath:
             self.error(f"Task '{filename}' not found.")
-        
+
         # filepath is definitely not None here for pyright
         filepath_str = cast(str, filepath)
         task = FM.load(filepath_str)
@@ -767,7 +771,7 @@ class TasksCLI:
         filepath, task = self.get_active_task(filename)
         if not filepath or not task:
             self.error("No active task.")
-        
+
         # filepath is definitely not None here for pyright
         filepath_str = cast(str, filepath)
         fname = os.path.basename(filepath_str)
@@ -923,9 +927,7 @@ class TasksCLI:
         self._sync_task_content(filepath, task, is_final=(new_status == "ARCHIVED"))
         task.metadata["St"] = new_status
         fname = os.path.basename(filepath)
-        new_filepath = os.path.join(
-            self.tasks_path, STATE_FOLDERS[new_status], fname
-        )
+        new_filepath = os.path.join(self.tasks_path, STATE_FOLDERS[new_status], fname)
         if os.path.isdir(filepath):
             shutil.move(filepath, new_filepath)
         else:
@@ -958,16 +960,25 @@ class TasksCLI:
         title = task.metadata.get("Ti", "")
 
         def _has_complete_content(t, fn):
-            if not t.parts.get("story") or len(str(t.parts.get("story", "")).strip()) < 10:
+            if (
+                not t.parts.get("story")
+                or len(str(t.parts.get("story", "")).strip()) < 10
+            ):
                 return False
-            if not t.parts.get("tech") or len(str(t.parts.get("tech", "")).strip()) < 10:
+            if (
+                not t.parts.get("tech")
+                or len(str(t.parts.get("tech", "")).strip()) < 10
+            ):
                 return False
             if (
                 not t.parts.get("criteria")
                 or len(str(t.parts.get("criteria", "")).strip()) < 10
             ):
                 return False
-            if not t.parts.get("plan") or len(str(t.parts.get("plan", "")).strip()) < 10:
+            if (
+                not t.parts.get("plan")
+                or len(str(t.parts.get("plan", "")).strip()) < 10
+            ):
                 return False
             type_part, _ = self._parse_filename(fn)
             if type_part == "issue":
@@ -1176,7 +1187,7 @@ class TasksCLI:
         filepath, task = self.get_active_task(filename)
         if not filepath or not task:
             self.error("No active task.")
-        
+
         # filepath is definitely not None here for pyright
         filepath_str = cast(str, filepath)
         tn = os.path.basename(filepath_str)
@@ -1222,7 +1233,7 @@ class TasksCLI:
                 f"Task '{filename}' not found.",
                 hint="Use 'tasks list' to see available task Ids.",
             )
-        
+
         # filepath is definitely not None here for pyright
         filepath_str = cast(str, filepath)
         task = FM.load(filepath_str)
@@ -1413,11 +1424,17 @@ class TasksCLI:
                     continue
                 branch = item
                 main_sha_res = self._run_git(["rev-parse", "main"])
-                main_sha = main_sha_res.stdout.strip() if main_sha_res.returncode == 0 else ""
+                main_sha = (
+                    main_sha_res.stdout.strip() if main_sha_res.returncode == 0 else ""
+                )
                 if not main_sha:
                     continue
                 branch_sha_res = self._run_git(["rev-parse", branch])
-                branch_sha = branch_sha_res.stdout.strip() if branch_sha_res.returncode == 0 else ""
+                branch_sha = (
+                    branch_sha_res.stdout.strip()
+                    if branch_sha_res.returncode == 0
+                    else ""
+                )
                 if not branch_sha:
                     continue
                 merge_base = self._run_git(
@@ -1474,11 +1491,17 @@ class TasksCLI:
                     continue
                 branch = item
                 main_sha_res = self._run_git(["rev-parse", "main"])
-                main_sha = main_sha_res.stdout.strip() if main_sha_res.returncode == 0 else ""
+                main_sha = (
+                    main_sha_res.stdout.strip() if main_sha_res.returncode == 0 else ""
+                )
                 if not main_sha:
                     continue
                 branch_sha_res = self._run_git(["rev-parse", branch])
-                branch_sha = branch_sha_res.stdout.strip() if branch_sha_res.returncode == 0 else ""
+                branch_sha = (
+                    branch_sha_res.stdout.strip()
+                    if branch_sha_res.returncode == 0
+                    else ""
+                )
                 if not branch_sha:
                     continue
                 merge_base = self._run_git(
