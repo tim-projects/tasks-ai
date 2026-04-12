@@ -1,0 +1,1 @@
+Currently, tasks delete requires manual confirmation which is cumbersome. For test tasks, we should be able to delete without confirmation.
