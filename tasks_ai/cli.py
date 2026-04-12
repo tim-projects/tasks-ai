@@ -1490,6 +1490,36 @@ class TasksCLI:
             if tasks:
                 tasks.sort(key=lambda x: (x["p"], x["file"]))
                 all_data[state] = tasks
+        # Check for circular blockers
+        circular_warnings = []
+        all_tasks = {}
+        for state, tasks in all_data.items():
+            for t in tasks:
+                all_tasks[str(t["id"])] = t
+                tid = str(t["id"])
+
+        for task_id, t in all_tasks.items():
+            bl = t.get("blocked_by", [])
+            if bl:
+                for b in bl:
+                    b_id = b.split("-")[0] if "-" in b else b
+                    if b_id in all_tasks:
+                        if self._has_path(b_id, task_id):
+                            circular_warnings.append(
+                                f"Circular blocker: Task {task_id} ({t['summary'][:30]}) <-> Task {b_id}"
+                            )
+
+        if circular_warnings:
+            if self.as_json:
+                result = all_data.copy()
+                result["warnings"] = circular_warnings
+                self.finish(result)
+            elif self.quiet:
+                for w in circular_warnings:
+                    print(f"WARNING: {w}")
+            else:
+                pass
+
         if self.as_json:
             self.finish(all_data)
         elif self.quiet:
