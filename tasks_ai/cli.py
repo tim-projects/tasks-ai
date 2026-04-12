@@ -7,8 +7,6 @@ import re
 import textwrap
 import json
 import shutil
-import random
-import string
 import fcntl
 from typing import cast
 from datetime import datetime, timedelta
@@ -317,7 +315,6 @@ class TasksCLI:
 
     def init(self):
         if self.dev:
-            # For dev mode, just create folders, no git worktree
             for folder in list(STATE_FOLDERS.values()):
                 p = os.path.join(self.tasks_path, folder)
                 if not os.path.exists(p):
@@ -328,6 +325,26 @@ class TasksCLI:
             if not os.path.exists(counter_file):
                 with open(counter_file, "w") as f:
                     f.write("0")
+
+            git_dir = os.path.join(self.tasks_path, ".git")
+            if not os.path.exists(git_dir):
+                subprocess.run(
+                    ["git", "init"], cwd=self.tasks_path, capture_output=True
+                )
+                subprocess.run(
+                    ["git", "add", "."], cwd=self.tasks_path, capture_output=True
+                )
+                subprocess.run(
+                    [
+                        "git",
+                        "commit",
+                        "--allow-empty",
+                        "-m",
+                        "Initial dev tasks commit",
+                    ],
+                    cwd=self.tasks_path,
+                    capture_output=True,
+                )
 
             self.log(f"Dev tasks initialized at {self.tasks_path}")
             self.finish()
@@ -1307,6 +1324,17 @@ class TasksCLI:
                     ],
                     cwd=self.tasks_path,
                 )
+            else:
+                self._run_git(["add", "--all"], cwd=self.tasks_path)
+                self._run_git(
+                    [
+                        "commit",
+                        "--allow-empty",
+                        "-m",
+                        f"Mv {os.path.basename(filepath)} -> {new_status}",
+                    ],
+                    cwd=self.tasks_path,
+                )
             if new_status == "PROGRESSING":
                 dump_path = os.path.join(new_filepath, CURRENT_TASK_FILENAME)
                 d = Task(
@@ -1496,7 +1524,6 @@ class TasksCLI:
         for state, tasks in all_data.items():
             for t in tasks:
                 all_tasks[str(t["id"])] = t
-                tid = str(t["id"])
 
         for task_id, t in all_tasks.items():
             bl = t.get("blocked_by", [])
@@ -1820,8 +1847,7 @@ class TasksCLI:
 
             # Find task first to check its state BEFORE deleting branch
             res_find = self.find_task(branch)
-            filepath = res_find[0]
-            state = res_find[1]
+            _, state = res_find
 
             # Respect workflow gates: only clean up branches for REVIEW/ARCHIVED tasks
             if state not in ("REVIEW", "ARCHIVED"):
@@ -2128,6 +2154,145 @@ class TasksCLI:
                 sys.exit(result.returncode)
 
         return result.returncode
+
+    def undo(self, filename):
+        """Undo the last operation on a task by restoring previous state from git."""
+        filepath, current_state = self.find_task(filename)
+        if not filepath:
+            self.error(
+                f"Task '{filename}' not found.",
+                hint="Use 'tasks list' to see all available task filenames/IDs.",
+            )
+
+        filepath_str = cast(str, filepath)
+        task = FM.load(filepath_str)
+        fname = os.path.basename(filepath_str)
+        task_id = fname.rsplit(".", 1)[0]
+        tt, _ = self._parse_filename(fname)
+        task_id_num = task.metadata.get("Id", "")
+
+        all_commits = (
+            self._run_git(
+                ["log", "--all", "--format=%h"],
+                cwd=self.tasks_path,
+            )
+            .stdout.strip()
+            .split("\n")
+        )
+
+        prev_commit = None
+        for commit in all_commits:
+            if not commit:
+                continue
+            tree_res = self._run_git(
+                ["ls-tree", "--name-only", "-r", commit],
+                cwd=self.tasks_path,
+            )
+            if fname in tree_res.stdout:
+                prev_commit = commit
+                break
+
+        if not prev_commit:
+            self.error("Nothing to undo: no git history found for this task.")
+
+        prev_prev_commit = None
+        found_current = False
+        for commit in all_commits:
+            if not commit:
+                continue
+            if found_current:
+                prev_prev_commit = commit
+                break
+            tree_res = self._run_git(
+                ["ls-tree", "--name-only", "-r", commit],
+                cwd=self.tasks_path,
+            )
+            if fname in tree_res.stdout:
+                found_current = True
+
+        if not prev_prev_commit:
+            self.error(
+                "Nothing to undo: this is the first commit for this task.",
+                hint="Use 'git log' in .tasks to see full history.",
+            )
+
+        last_commit_msg = self._run_git(
+            ["log", "-1", "--format=%s", prev_commit],
+            cwd=self.tasks_path,
+        ).stdout.strip()
+
+        if last_commit_msg.startswith("Undo:"):
+            self.error(
+                "Cannot undo twice in a row. Already at previous state.",
+                hint="Use 'tasks list' to see current state, or 'git log' in .tasks to see history.",
+            )
+
+        tree_res = self._run_git(
+            ["ls-tree", "--name-only", "-r", prev_prev_commit],
+            cwd=self.tasks_path,
+        )
+        files_to_restore = [
+            f for f in tree_res.stdout.strip().split("\n") if fname in f
+        ]
+
+        if not files_to_restore:
+            self.error("Could not find files to restore from previous commit.")
+
+        temp_dir = tempfile.mkdtemp(dir=self.tasks_path)
+        try:
+            for file_path in files_to_restore:
+                if not file_path:
+                    continue
+                file_name = os.path.basename(file_path)
+                show_res = self._run_git(
+                    ["show", f"{prev_prev_commit}:{file_path}"],
+                    cwd=self.tasks_path,
+                )
+                if show_res.returncode != 0:
+                    continue
+
+                out_path = os.path.join(temp_dir, file_name)
+                with open(out_path, "w") as f:
+                    f.write(show_res.stdout)
+
+            restored_task = FM.load(temp_dir)
+            prev_state = restored_task.metadata.get("St", "BACKLOG")
+
+            target_folder = STATE_FOLDERS.get(prev_state, STATE_FOLDERS["BACKLOG"])
+            target_dir = os.path.join(self.tasks_path, target_folder, fname)
+
+            if os.path.isdir(filepath_str):
+                shutil.rmtree(filepath_str)
+            shutil.move(temp_dir, target_dir)
+        except Exception:
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+            raise
+
+        self._run_git(["add", "--all"], cwd=self.tasks_path)
+        self._run_git(
+            [
+                "commit",
+                "--allow-empty",
+                "-m",
+                f"Undo: restore {fname} to {prev_prev_commit[:7]}",
+            ],
+            cwd=self.tasks_path,
+        )
+
+        final_task = FM.load(target_dir)
+        self.log(
+            f"Undone: [{task_id_num}] {tt} | restored to previous state ({prev_state})"
+        )
+        self.finish(
+            {
+                "id": task_id_num,
+                "task_id": task_id,
+                "title": final_task.metadata.get("Ti", ""),
+                "restored_from_commit": prev_prev_commit[:7],
+                "previous_state": prev_state,
+            }
+        )
 
     def upgrade(self):
         """Upgrade tasks to latest version by running install.sh."""

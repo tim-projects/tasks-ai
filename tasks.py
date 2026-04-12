@@ -154,6 +154,9 @@ if __name__ == "__main__":
     )
     run_p.add_argument("--fix", action="store_true", help="Apply fixes if supported.")
 
+    undo_p = subparsers.add_parser("undo", help="Undo last operation on a task.")
+    undo_p.add_argument("filename", help="Task Id (or filename) to undo.")
+
     args = parser.parse_args()
 
     if args.version:
@@ -216,3 +219,5 @@ if __name__ == "__main__":
         cli.upgrade()
     elif args.command == "run":
         cli.run_tool(args.tool, fix=args.fix)
+    elif args.command == "undo":
+        cli.undo(args.filename)
