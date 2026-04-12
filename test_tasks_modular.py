@@ -84,15 +84,14 @@ def test_move_and_delete(setup_tasks):
     # Test delete confirmation
     from tasks_ai.file_manager import FM
 
-    path, _ = cli.find_task(task_id)
-
-    # First call marks for deletion
+    # First call marks for deletion - task moves to REJECTED
     try:
         cli.delete(task_id)
     except SystemExit:
         pass
 
-    # Reload to get DeleteCode
+    # Find the task now in REJECTED folder
+    path, _ = cli.find_task(task_id)
     task = FM.load(path)
     assert "DeleteCode" in task.metadata
 

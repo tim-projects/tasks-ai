@@ -41,7 +41,7 @@ KEY_MAP = {
     "Tp": "TestsPassed",
 }
 
-ALLOWED_CONFIG_KEYS = {"story", "tech", "criteria", "plan"}
+ALLOWED_CONFIG_KEYS = {"story", "tech", "criteria", "plan", "tasks_dir"}
 
 AGENT_GUIDANCE = """
 AGENT OPERATIONAL PROTOCOL:

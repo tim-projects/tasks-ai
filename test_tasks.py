@@ -143,6 +143,7 @@ class TestTasksAI(unittest.TestCase):
 
             # Simulate pipeline merges to satisfy enforcement
             if state == "REVIEW":
+                self.run_cmd(["modify", issue_file, "--tests-passed"])
                 subprocess.run(
                     ["git", "checkout", "-b", "testing"],
                     cwd=self.repo_dir,
@@ -228,6 +229,7 @@ class TestTasksAI(unittest.TestCase):
         for state in ["TESTING", "REVIEW", "STAGING", "LIVE"]:
             # Simulate pipeline merges to satisfy enforcement
             if state == "REVIEW":
+                self.run_cmd(["modify", file, "--tests-passed"])
                 subprocess.run(
                     ["git", "checkout", "-b", "testing"],
                     cwd=self.repo_dir,

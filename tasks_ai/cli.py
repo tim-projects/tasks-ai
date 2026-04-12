@@ -755,6 +755,11 @@ class TasksCLI:
 
         # If no confirm, move to REJECTED (respecting workflow gates)
         if not confirm:
+            import secrets
+
+            delete_code = secrets.token_hex(8)
+            task.metadata["DeleteCode"] = delete_code
+            self._atomic_write(filepath_str, task)
             self._move_logic(task_id, "REJECTED", force=True)
             new_filepath = os.path.join(
                 self.tasks_path, STATE_FOLDERS["REJECTED"], fname
@@ -766,6 +771,7 @@ class TasksCLI:
                     "task_id": task_id,
                     "title": task.metadata.get("Ti", ""),
                     "state": "REJECTED",
+                    "delete_code": delete_code,
                 }
             )
 
