@@ -830,7 +830,7 @@ class TasksCLI:
 
         f1_str = cast(str, f1)
         f2_str = cast(str, f2)
-        
+
         f1_fname = os.path.basename(f1_str)
         f2_fname = os.path.basename(f2_str)
 
