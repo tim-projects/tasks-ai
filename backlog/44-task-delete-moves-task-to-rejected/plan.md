@@ -1,0 +1,1 @@
+1. 1. Update delete in cli.py. 2. Test.

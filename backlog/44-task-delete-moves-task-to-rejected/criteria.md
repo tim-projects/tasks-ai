@@ -1,0 +1,1 @@
+- [ ] 1) tasks delete  moves to REJECTED without confirmation. 2) tasks delete  --confirm deletes from REJECTED.

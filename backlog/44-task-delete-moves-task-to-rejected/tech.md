@@ -1,0 +1,1 @@
+Update delete command to: 1) Move task to REJECTED first. 2) Then optionally delete with --confirm flag.

@@ -1,0 +1,1 @@
+When deleting a task, it should first move to REJECTED status (no confirmation needed), then optionally delete with confirmation. This respects the workflow gates.
