@@ -1,1 +1,1 @@
-- [ ] 1) Linking A -> B as blocker when B -> A exists fails with error. 2) Error message clearly explains the circular dependency.
+- [ ] 1) Running tasks reconcile or new doctor command detects circular blockers. 2) Reports which tasks have circular blockers.
