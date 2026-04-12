@@ -1,7 +1,20 @@
 # tasks_ai/file_manager.py
 import os
 import json
+import tempfile
+import shutil
 from .models import Task
+
+
+def _atomic_write(path, content):
+    """Write content to file atomically using temp file + rename."""
+    dir_path = os.path.dirname(path) or "."
+    with tempfile.NamedTemporaryFile(
+        mode="w", dir=dir_path, delete=False, encoding="utf-8"
+    ) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+    shutil.move(tmp_path, path)
 
 
 class FM:
@@ -62,27 +75,29 @@ class FM:
     def dump(task, path):
         if path.endswith(".md"):
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "w") as f:
-                f.write("---\n")
-                for k, v in task.metadata.items():
-                    val = (
-                        "[" + ", ".join(f'"{item}"' for item in v) + "]"
-                        if isinstance(v, list)
-                        else v
-                    )
-                    f.write(f"{k}: {val}\n")
-                f.write("---\n\n")
-                f.write(task.parts.get("content", task.content))
+            content = "---\n"
+            for k, v in task.metadata.items():
+                val = (
+                    "[" + ", ".join(f'"{item}"' for item in v) + "]"
+                    if isinstance(v, list)
+                    else v
+                )
+                content += f"{k}: {val}\n"
+            content += "---\n\n"
+            content += task.parts.get("content", task.content)
+            _atomic_write(path, content)
             return
 
         os.makedirs(path, exist_ok=True)
-        with open(os.path.join(path, "meta.json"), "w") as f:
-            json.dump(task.metadata, f, indent=2)
+        meta_path = os.path.join(path, "meta.json")
+        _atomic_write(
+            meta_path,
+            json.dumps(task.metadata, indent=2),
+        )
 
         for name, content in task.parts.items():
             if name == "content":
                 continue
             if content is None:
                 continue
-            with open(os.path.join(path, f"{name}.md"), "w") as f:
-                f.write(content)
+            _atomic_write(os.path.join(path, f"{name}.md"), content)
