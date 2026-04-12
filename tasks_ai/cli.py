@@ -621,6 +621,7 @@ class TasksCLI:
         progress=None,
         findings=None,
         mitigations=None,
+        tests_passed=None,
     ):
         filepath, _ = self.find_task(filename)
         if not filepath:
@@ -678,6 +679,10 @@ class TasksCLI:
             if mitigations:
                 n = re.sub(r"- Mitigations:.*", f"- Mitigations: {mitigations}", n)
             task.parts["notes"] = n
+            updated = True
+
+        if tests_passed is not None:
+            task.metadata["Tp"] = bool(tests_passed)
             updated = True
 
         if updated:
@@ -1072,6 +1077,16 @@ class TasksCLI:
                 f"Forbidden transition: {current_state} -> {new_status}",
                 hint=f"Allowed transitions from {current_state} are: {', '.join(ALLOWED_TRANSITIONS.get(current_state, []))}",
             )
+
+        # Check tests_passed when moving from TESTING to REVIEW
+        if current_state == "TESTING" and new_status == "REVIEW":
+            task = FM.load(filepath_str)
+            if not task.metadata.get("Tp", False):
+                self.error(
+                    "Tests must be passed before moving to REVIEW.",
+                    hint="Run 'tasks modify <id> --tests-passed' to mark tests as passed.",
+                )
+
         task = FM.load(filepath_str)
         fname = os.path.basename(filepath_str)
         tt, branch = self._parse_filename(fname)

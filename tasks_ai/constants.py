@@ -38,6 +38,7 @@ KEY_MAP = {
     "Bl": "BlockedBy",
     "Pr": "Priority",
     "Ar": "ArchivedAt",
+    "Tp": "TestsPassed",
 }
 
 ALLOWED_CONFIG_KEYS = {"story", "tech", "criteria", "plan"}
