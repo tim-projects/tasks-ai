@@ -786,7 +786,13 @@ class TasksCLI:
             self.log("Done.")
         else:
             self.log("No changes.")
-        self.finish()
+        self.finish(
+            {
+                "id": task.metadata.get("Id"),
+                "task_id": fname,
+                "title": task.metadata.get("Ti", ""),
+            }
+        )
 
     def _sync_task_content(self, filepath, task, is_final=False):
         if not filepath:
@@ -821,22 +827,25 @@ class TasksCLI:
         f2, _ = self.find_task(blocked_by_filename)
         if not f1 or not f2:
             self.error("Not found.")
-        
+
         f1_str = cast(str, f1)
         f2_str = cast(str, f2)
         
+        f1_fname = os.path.basename(f1_str)
+        f2_fname = os.path.basename(f2_str)
+
         task = FM.load(f1_str)
         task_title = str(task.metadata.get("Ti", ""))
         task_id_num = str(task.metadata.get("Id", ""))
-        tt, _ = self._parse_filename(os.path.basename(f1_str))
+        tt, _ = self._parse_filename(f1_fname)
         bl = task.metadata.get("Bl", [])
         if not isinstance(bl, list):
             bl = []
-        b_name = os.path.basename(f2_str)
+        b_name = f2_fname
         b_task = FM.load(f2_str)
         b_title = str(b_task.metadata.get("Ti", ""))
         b_id = str(b_task.metadata.get("Id", ""))
-        b_tt, _ = self._parse_filename(os.path.basename(f2_str))
+        b_tt, _ = self._parse_filename(f2_fname)
         if b_name not in bl:
             bl.append(b_name)
             task.metadata["Bl"] = bl
@@ -935,9 +944,7 @@ class TasksCLI:
         self._sync_task_content(filepath_str, task, is_final=(new_status == "ARCHIVED"))
         task.metadata["St"] = new_status
         fname = os.path.basename(filepath_str)
-        new_filepath = os.path.join(
-            self.tasks_path, STATE_FOLDERS[new_status], fname
-        )
+        new_filepath = os.path.join(self.tasks_path, STATE_FOLDERS[new_status], fname)
         if os.path.isdir(filepath_str):
             shutil.move(filepath_str, new_filepath)
         else:
@@ -1084,7 +1091,9 @@ class TasksCLI:
         tt, branch = self._parse_filename(fname)
         # Resolve branch to SHA if it exists
         branch_sha_res = self._run_git(["rev-parse", branch])
-        branch_sha = branch_sha_res.stdout.strip() if branch_sha_res.returncode == 0 else ""
+        branch_sha = (
+            branch_sha_res.stdout.strip() if branch_sha_res.returncode == 0 else ""
+        )
         if not branch_sha:
             # Try to find it in reflog or by name in commits
             res = self._run_git(["log", "-1", "--format=%H", branch])
