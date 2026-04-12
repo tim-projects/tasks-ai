@@ -169,8 +169,8 @@ class TestDevMode(unittest.TestCase):
                 "--dev",
                 "config",
                 "set",
-                "test_key",
-                "dev_val",
+                "tasks_dir",
+                "/tmp/custom",
             ],
             capture_output=True,
             text=True,
@@ -182,14 +182,14 @@ class TestDevMode(unittest.TestCase):
         self.assertTrue(os.path.exists(config_path))
         with open(config_path, "r") as f:
             content = f.read()
-            self.assertIn("test_key: dev_val", content)
+            self.assertIn("tasks_dir: /tmp/custom", content)
 
         # Check that project config is unchanged
         project_config = os.path.join(self.root, ".tasks", "config.yaml")
         if os.path.exists(project_config):
             with open(project_config, "r") as f:
                 content = f.read()
-                self.assertNotIn("test_key: dev_val", content)
+                self.assertNotIn("tasks_dir: /tmp/custom", content)
 
 
 if __name__ == "__main__":

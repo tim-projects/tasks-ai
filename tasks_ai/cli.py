@@ -21,6 +21,7 @@ from .constants import (
     STATE_FOLDERS,
     ALLOWED_TRANSITIONS,
     KEY_MAP,
+    ALLOWED_CONFIG_KEYS,
 )
 from .models import Task
 from .file_manager import FM
@@ -109,6 +110,21 @@ class TasksCLI:
                 ["commit", "--allow-empty", "-m", "Clear delete marks"],
                 cwd=self.tasks_path,
             )
+
+    def _validate_task_id(self, task_id):
+        """Validate task ID format (numeric or slug)."""
+        if not task_id:
+            return False
+        # Allow numeric IDs or task slugs (e.g., "1-task-title")
+        return bool(re.match(r"^[a-zA-Z0-9\-_.]+$", task_id))
+
+    def _validate_path(self, path):
+        """Ensure path is within tasks_path to prevent traversal."""
+        if not path:
+            return False
+        abs_tasks = os.path.abspath(self.tasks_path)
+        abs_target = os.path.abspath(path)
+        return abs_target.startswith(abs_tasks)
 
     def _get_git_root(self):
         try:
@@ -402,7 +418,7 @@ class TasksCLI:
         )
 
     def find_task(self, name):
-        if not name:
+        if not name or not self._validate_task_id(name):
             return None, None
         task_id = name.rsplit(".", 1)[0]
 
@@ -430,16 +446,25 @@ class TasksCLI:
         if not matches:
             return None, None
 
+        selected = None
         if len(matches) == 1:
-            return matches[0]
+            selected = matches[0]
+        else:
+            for path, state in matches:
+                if state == "ARCHIVED":
+                    selected = (path, "ARCHIVED")
+                    break
+            if not selected:
+                for path, state in matches:
+                    if state != "BACKLOG":
+                        selected = (path, state)
+                        break
+            if not selected:
+                selected = matches[0]
 
-        for path, state in matches:
-            if state == "ARCHIVED":
-                return path, "ARCHIVED"
-        for path, state in matches:
-            if state != "BACKLOG":
-                return path, state
-        return matches[0]
+        if selected and self._validate_path(selected[0]):
+            return selected
+        return None, None
 
     def _get_next_id(self):
         counter_file = os.path.join(self.tasks_path, ".task_counter")
@@ -489,11 +514,17 @@ class TasksCLI:
                 f"Missing required fields: {', '.join(missing)}. Task not created. These are required to move to PROGRESSING anyway."
             )
 
-        clean_title = "".join(c if c.isalnum() else "-" for c in title.lower()).strip(
-            "-"
-        )
+        if priority is not None:
+            try:
+                p = int(priority)
+                if not (1 <= p <= 9):
+                    raise ValueError()
+            except (ValueError, TypeError):
+                self.error("Priority must be a number between 1 and 9.")
+
+        clean_title = re.sub(r"[^a-zA-Z0-9]+", "-", title.lower()).strip("-")
         numeric_id = self._get_next_id()
-        task_id = f"{numeric_id}-{task_type}-{clean_title[:30]}"
+        task_id = f"{numeric_id}-{task_type}-{clean_title[:30]}".strip("-")
         task_dir = os.path.join(self.tasks_path, STATE_FOLDERS["BACKLOG"], task_id)
         if self.find_task(task_id)[0]:
             self.error(f"Task {task_id} exists.")
@@ -690,6 +721,9 @@ class TasksCLI:
         filepath, _ = self.find_task(filename)
         if not filepath:
             self.error(f"Task '{filename}' not found.")
+        
+        if not self._validate_path(filepath):
+            self.error(f"Invalid task path: {filepath}")
 
         # filepath is definitely not None here for pyright
         filepath_str = cast(str, filepath)
@@ -831,6 +865,9 @@ class TasksCLI:
         f1_str = cast(str, f1)
         f2_str = cast(str, f2)
 
+        if os.path.abspath(f1_str) == os.path.abspath(f2_str):
+            self.error("Cannot link a task to itself.")
+
         f1_fname = os.path.basename(f1_str)
         f2_fname = os.path.basename(f2_str)
 
@@ -883,6 +920,12 @@ class TasksCLI:
 
         if "," in new_status:
             statuses = [s.strip().upper() for s in new_status.split(",")]
+            for s in statuses:
+                if s not in STATE_FOLDERS:
+                    self.error(
+                        f"Invalid status '{s}' in multi-move sequence.",
+                        hint=f"Valid statuses are: {', '.join(STATE_FOLDERS.keys())}",
+                    )
             current_state = str(task.metadata.get("St", ""))
             for i, target in enumerate(statuses):
                 if (
@@ -1773,6 +1816,11 @@ class TasksCLI:
         elif action == "set":
             if not key or value is None:
                 self.error("Missing config key or value.")
+            if key not in ALLOWED_CONFIG_KEYS:
+                self.error(
+                    f"Invalid config key '{key}'.",
+                    hint=f"Allowed keys: {', '.join(ALLOWED_CONFIG_KEYS)}",
+                )
             cfg[key] = value
             save_config(cfg)
             if self.as_json:
