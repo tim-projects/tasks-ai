@@ -1,1 +1,1 @@
-Extend the existing circular dependency detection (_has_path) to check blocker relationships when linking tasks. This is the same fix we did for task 14 but should apply to all link operations.
+The _has_path function already checks Bl (BlockedBy) for circular dependencies. But we should add a 'doctor' command or 'reconcile' check to detect and report existing circular blocker dependencies so users can fix them.
