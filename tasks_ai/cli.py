@@ -756,6 +756,10 @@ class TasksCLI:
         # If no confirm, move to REJECTED (respecting workflow gates)
         if not confirm:
             self._move_logic(task_id, "REJECTED", force=True)
+            new_filepath = os.path.join(
+                self.tasks_path, STATE_FOLDERS["REJECTED"], fname
+            )
+            self._append_log(new_filepath, "Del")
             self.finish(
                 {
                     "id": task.metadata.get("Id"),
@@ -773,6 +777,7 @@ class TasksCLI:
             )
 
         try:
+            self._append_log(filepath_str, "Del")
             if os.path.isdir(filepath_str):
                 shutil.rmtree(filepath_str)
             else:
@@ -829,8 +834,10 @@ class TasksCLI:
                 ["commit", "--allow-empty", "-m", f"Cp: {fname}"],
                 cwd=self.tasks_path,
             )
+            self._append_log(filepath_str, "Cp")
             self.log("Done.")
         else:
+            self._append_log(filepath_str, "Cp")
             self.log("No changes.")
         self.finish(
             {
@@ -967,6 +974,7 @@ class TasksCLI:
             bl.append(b_name)
             task.metadata["Bl"] = bl
             self._atomic_write(f1_str, task)
+            self._append_log(f1_str, "Lk")
             self._run_git(["add", "--all"], cwd=self.tasks_path)
             self._run_git(
                 ["commit", "--allow-empty", "-m", f"Lk {filename}->{b_name}"],
@@ -1265,10 +1273,23 @@ class TasksCLI:
                     if self._run_git(["rev-parse", "--verify", "main"]).returncode == 0
                     else None
                 )
-                branch_commit = (
-                    branch_sha or self._run_git(["rev-parse", branch]).stdout.strip()
+                branch_exists = (
+                    self._run_git(["rev-parse", "--verify", branch]).returncode == 0
                 )
-                if main_sha:
+                branch_commit = branch_sha
+                if not branch_commit and branch_exists:
+                    branch_commit = self._run_git(["rev-parse", branch]).stdout.strip()
+                if not branch_commit:
+                    if self._run_git(
+                        ["ls-remote", "--heads", "origin", branch]
+                    ).stdout.strip():
+                        self._run_git(["fetch", "origin", branch], cwd=self.root)
+                        branch_commit = self._run_git(
+                            ["rev-parse", f"origin/{branch}"]
+                        ).stdout.strip()
+                if not branch_commit:
+                    branch_commit = main_sha
+                if main_sha and branch_commit:
                     merge_base = self._run_git(
                         ["merge-base", branch_commit, "main"]
                     ).stdout.strip()
@@ -2281,6 +2302,7 @@ class TasksCLI:
         )
 
         final_task = FM.load(target_dir)
+        self._append_log(target_dir, "Und")
         self.log(
             f"Undone: [{task_id_num}] {tt} | restored to previous state ({prev_state})"
         )
