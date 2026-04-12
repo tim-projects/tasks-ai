@@ -1,0 +1,1 @@
+bcd8acb Delete moves task to REJECTED first, then delete with --confirm
