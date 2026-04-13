@@ -159,8 +159,7 @@ class TasksCLI:
                     idx = args.index("-m")
                     msg = f": {args[idx + 1]}"
                 self.log(f"Git: Committed changes{msg}")
-            elif cmd == "add":
-                self.log("Git: Staged changes")
+
             elif cmd == "push":
                 remote = args[1] if len(args) > 1 else ""
                 branch = args[2] if len(args) > 2 else ""
@@ -1336,7 +1335,7 @@ class TasksCLI:
 
         if not force:
             has_origin = self._run_git(["remote", "get-url", "origin"]).returncode == 0
-            if new_status in ("REVIEW", "ARCHIVED"):
+            if new_status in ("REVIEW", "STAGING", "LIVE", "ARCHIVED"):
                 if has_origin:
                     if not self._run_git(
                         ["ls-remote", "--heads", "origin", branch]
@@ -1360,7 +1359,22 @@ class TasksCLI:
                         f"Branch '{branch}' not merged to testing. Merge to testing first."
                     )
 
-            if new_status == "ARCHIVED" and not force:
+            if new_status == "STAGING":
+                merge_base = self._run_git(
+                    ["merge-base", branch_sha or branch, "testing"]
+                ).stdout.strip()
+                testing_sha = (
+                    self._run_git(["rev-parse", "testing"]).stdout.strip()
+                    if self._run_git(["rev-parse", "--verify", "testing"]).returncode
+                    == 0
+                    else None
+                )
+                if not testing_sha or merge_base != testing_sha:
+                    self.error(
+                        f"Branch '{branch}' not merged to testing. Merge to testing first."
+                    )
+
+            if new_status in ("LIVE", "ARCHIVED") and not force:
                 main_sha = (
                     self._run_git(["rev-parse", "main"]).stdout.strip()
                     if self._run_git(["rev-parse", "--verify", "main"]).returncode == 0
@@ -1971,6 +1985,13 @@ class TasksCLI:
                 pending_archive.append(branch)
                 continue
 
+            # Check branch was pushed to remote before cleaning up
+            if has_origin:
+                remote_check = self._run_git(["ls-remote", "--heads", "origin", branch])
+                if not remote_check.stdout.strip():
+                    pending_archive.append(f"{branch} (not pushed to remote)")
+                    continue
+
             if not dry_run:
                 if has_origin:
                     self._run_git(["push", "origin", branch], cwd=self.root)
@@ -1978,7 +1999,7 @@ class TasksCLI:
 
             cleaned.append(branch)
 
-            if state == "REVIEW":
+            if state == "LIVE":
                 if not dry_run:
                     self._move_logic(branch, "ARCHIVED", force=True, yes=yes)
                     archived.append(branch)
