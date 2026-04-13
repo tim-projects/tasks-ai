@@ -171,7 +171,12 @@ class TestTasksAI(unittest.TestCase):
                     ["git", "merge", "staging"], cwd=self.repo_dir, capture_output=True
                 )
 
-            res = self.run_cmd(["move", issue_file, state])
+            # Pass -y for LIVE since it requires merge confirmation
+            move_args = ["move", issue_file, state]
+            if state == "LIVE":
+                move_args.append("-y")
+            res = self.run_cmd(move_args)
+            print(f"DEBUG: Full response for {state}: {res}")
             self.assertTrue(res["success"], f"Failed move to {state}: {res}")
 
         # Complete checkboxes before archiving
@@ -260,7 +265,11 @@ class TestTasksAI(unittest.TestCase):
                     ["git", "merge", "staging"], cwd=self.repo_dir, capture_output=True
                 )
 
-            res = self.run_cmd(["move", file, state])
+            # Pass -y for LIVE since it requires merge confirmation
+            move_args = ["move", file, state]
+            if state == "LIVE":
+                move_args.append("-y")
+            res = self.run_cmd(move_args)
             self.assertTrue(res["success"], f"Failed move to {state}: {res}")
 
         # Complete checkboxes

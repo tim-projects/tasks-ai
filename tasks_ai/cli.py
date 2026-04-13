@@ -1292,7 +1292,7 @@ class TasksCLI:
 
         if not force:
             has_origin = self._run_git(["remote", "get-url", "origin"]).returncode == 0
-            if new_status in ("REVIEW", "LIVE", "ARCHIVED"):
+            if new_status in ("REVIEW", "STAGING", "LIVE", "ARCHIVED"):
                 if has_origin:
                     if not self._run_git(
                         ["ls-remote", "--heads", "origin", branch]
