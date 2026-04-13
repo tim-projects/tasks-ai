@@ -431,6 +431,24 @@ class TasksCLI:
         self.log("Use -j for JSON output. Run 'list' to see all tasks with their Ids.")
         self.finish()
 
+    def save(self, branch="tasks"):
+        if not os.path.exists(self.tasks_path):
+            self.error("Tasks not initialized. Run 'tasks init' first.")
+        remotes = self._run_git(["remote", "-v"], cwd=self.tasks_path)
+        if not remotes.stdout.strip():
+            self.error("No remote configured in .tasks. Add a remote first.")
+        current = self._run_git(
+            ["rev-parse", "--abbrev-ref", "HEAD"], cwd=self.tasks_path
+        ).stdout.strip()
+        push_result = self._run_git(
+            ["push", "-u", "origin", f"{current}:refs/heads/{branch}"],
+            cwd=self.tasks_path,
+        )
+        if push_result.returncode != 0:
+            self.error(f"Failed to push to remote: {push_result.stderr}")
+        self.log(f"Pushed {current} to origin/{branch}")
+        self.finish({"branch": branch, "remote": "origin", "from_branch": current})
+
     def _append_log(self, task_path, entry):
         if not task_path:
             return

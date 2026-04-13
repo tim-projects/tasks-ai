@@ -32,6 +32,16 @@ if __name__ == "__main__":
 
     subparsers.add_parser("init", help="Init tasks.")
 
+    save_p = subparsers.add_parser(
+        "save", help="Save and push .tasks worktree to remote."
+    )
+    save_p.add_argument(
+        "--branch",
+        "-b",
+        default="tasks",
+        help="Remote branch name (default: 'tasks').",
+    )
+
     list_p = subparsers.add_parser("list", help="List tasks.")
     list_p.add_argument("--all", action="store_true")
 
@@ -177,6 +187,8 @@ if __name__ == "__main__":
 
     if args.command == "init":
         cli.init()
+    elif args.command == "save":
+        cli.save(branch=args.branch)
     elif args.command == "create":
         cli.create(
             args.title,
