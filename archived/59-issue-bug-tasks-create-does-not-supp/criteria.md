@@ -1,0 +1,1 @@
+- [x] Command outputs JSON when -j is used (tested: `python tasks.py -j create "Title" ...` works correctly).

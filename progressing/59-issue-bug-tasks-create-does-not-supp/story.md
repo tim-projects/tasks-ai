@@ -1,1 +1,0 @@
-When creating a new task, the command line interface does not output in JSON format even when the -j flag is provided, violating the mandate that all CLI operations must be machine-parseable.
