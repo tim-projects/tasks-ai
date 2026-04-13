@@ -1,0 +1,1 @@
+1. 1. Fix type errors in cli.py\n2. Fix test file issues\n3. Verify all checks pass

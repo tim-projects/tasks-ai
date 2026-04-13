@@ -1,0 +1,1 @@
+Add type annotations, handle None cases, and fix imports in cli.py and test files

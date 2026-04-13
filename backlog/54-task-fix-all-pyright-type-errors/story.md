@@ -1,0 +1,1 @@
+Fix all 42 pre-existing pyright type errors in the codebase to achieve full compliance
