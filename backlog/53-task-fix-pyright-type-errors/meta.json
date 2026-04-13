@@ -1,8 +1,9 @@
 {
   "Id": 53,
-  "Ti": "Fix pyright type errors",
+  "Ti": "FIXED: pyright type errors - duplicate of task 54",
   "St": "BACKLOG",
   "Cr": "260412 22:46",
   "Bl": [],
-  "Pr": 2
+  "Pr": 2,
+  "Tp": false
 }
