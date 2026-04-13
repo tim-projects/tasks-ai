@@ -1,0 +1,1 @@
+Add a --priority or -p option to the 'tasks modify' command to allow updating the priority field of an existing task.

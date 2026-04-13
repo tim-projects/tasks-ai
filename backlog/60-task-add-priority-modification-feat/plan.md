@@ -1,0 +1,1 @@
+1. 1. Locate 'tasks modify' command implementation in 'tasks.py'. 2. Add --priority option to parser. 3. Update handler to update priority in task file. 4. Verify with test case.
