@@ -1,0 +1,1 @@
+- [ ] Command outputs JSON when -j is used.

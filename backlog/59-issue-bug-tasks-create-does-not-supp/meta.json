@@ -1,0 +1,8 @@
+{
+  "Id": 59,
+  "Ti": "Bug: 'tasks create' does not support -j flag for JSON output",
+  "St": "BACKLOG",
+  "Cr": "260413 17:25",
+  "Bl": [],
+  "Pr": 1
+}
