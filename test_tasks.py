@@ -167,6 +167,9 @@ class TestTasksAI(unittest.TestCase):
                 subprocess.run(
                     ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
                 )
+                subprocess.run(
+                    ["git", "merge", "staging"], cwd=self.repo_dir, capture_output=True
+                )
 
             res = self.run_cmd(["move", issue_file, state])
             self.assertTrue(res["success"], f"Failed move to {state}: {res}")
@@ -252,6 +255,9 @@ class TestTasksAI(unittest.TestCase):
                 )
                 subprocess.run(
                     ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
+                )
+                subprocess.run(
+                    ["git", "merge", "staging"], cwd=self.repo_dir, capture_output=True
                 )
 
             res = self.run_cmd(["move", file, state])

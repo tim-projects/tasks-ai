@@ -1292,7 +1292,7 @@ class TasksCLI:
 
         if not force:
             has_origin = self._run_git(["remote", "get-url", "origin"]).returncode == 0
-            if new_status in ("REVIEW", "ARCHIVED"):
+            if new_status in ("REVIEW", "LIVE", "ARCHIVED"):
                 if has_origin:
                     if not self._run_git(
                         ["ls-remote", "--heads", "origin", branch]
@@ -1316,7 +1316,7 @@ class TasksCLI:
                         f"Branch '{branch}' not merged to testing. Merge to testing first."
                     )
 
-            if new_status == "ARCHIVED" and not force:
+            if new_status in ("LIVE", "ARCHIVED") and not force:
                 main_sha = (
                     self._run_git(["rev-parse", "main"]).stdout.strip()
                     if self._run_git(["rev-parse", "--verify", "main"]).returncode == 0
