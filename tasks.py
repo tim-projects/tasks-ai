@@ -87,6 +87,7 @@ if __name__ == "__main__":
     mod_p.add_argument(
         "--tests-passed", action="store_true", help="Mark tests as passed."
     )
+    mod_p.add_argument("-p", "--priority", type=int, help="Update priority.")
 
     mv_p = subparsers.add_parser("move", help="Move task.")
     mv_p.add_argument(
@@ -201,6 +202,7 @@ if __name__ == "__main__":
             findings=args.findings,
             mitigations=args.mitigations,
             tests_passed=args.tests_passed,
+            priority=args.priority,
         )
     elif args.command == "move":
         cli.move(args.filename, args.status, yes=args.yes)

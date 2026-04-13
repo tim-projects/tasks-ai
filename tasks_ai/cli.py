@@ -679,6 +679,7 @@ class TasksCLI:
         findings=None,
         mitigations=None,
         tests_passed=None,
+        priority=None,
     ):
         filepath, _ = self.find_task(filename)
         if not filepath:
@@ -740,6 +741,10 @@ class TasksCLI:
 
         if tests_passed is not None:
             task.metadata["Tp"] = bool(tests_passed)
+            updated = True
+
+        if priority is not None:
+            task.metadata["P"] = priority
             updated = True
 
         if updated:
