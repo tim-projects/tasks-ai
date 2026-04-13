@@ -1,0 +1,1 @@
+The codebase has many pyright type errors that prevent promotion. These are pre-existing errors unrelated to recent workflow changes.
