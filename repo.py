@@ -264,8 +264,17 @@ def cmd_merge(src_input, target):
     if prompt_yes_no(f"Push {target} to origin?"):
         run(["git", "push", "origin", target])
 
-    # 5. Cleanup / Return
-    if prompt_yes_no(f"Switch back to {src}?"):
+    # 5. Auto-cleanup local feature branch if merged to main (keep remote for restoration)
+    is_feature_branch = src not in ("main", "master", "testing", "staging")
+    if is_feature_branch and target == "main":
+        if FLAGS["yes"] or prompt_yes_no(
+            f"Delete local branch '{src}'? (Remote branch kept for restoration)"
+        ):
+            run(["git", "branch", "-D", src], check=False)
+            log(f"🗑️ Deleted local branch '{src}' (remote preserved)")
+
+    # 6. Return
+    if src and (FLAGS["yes"] or prompt_yes_no(f"Switch back to {src}?")):
         run(["git", "checkout", src])
 
     log(f"✅ Successfully merged {src} → {target}")

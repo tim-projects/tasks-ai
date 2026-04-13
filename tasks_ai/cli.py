@@ -1070,6 +1070,31 @@ class TasksCLI:
                         hint=f"Allowed transitions from {current_state} are: {', '.join(ALLOWED_TRANSITIONS.get(current_state, []))}",
                     )
                 if target == "PROGRESSING":
+                    # Check if branch exists locally and restore from remote if needed
+                    fname = os.path.basename(filepath)
+                    _, branch = self._parse_filename(fname)
+                    branch_exists = self._run_git(["rev-parse", branch]).returncode == 0
+                    if not branch_exists:
+                        has_origin = (
+                            self._run_git(["remote", "get-url", "origin"]).returncode
+                            == 0
+                        )
+                        if has_origin:
+                            remote_check = self._run_git(
+                                ["ls-remote", "--heads", "origin", branch]
+                            )
+                            if remote_check.stdout.strip():
+                                self.log(
+                                    f"Branch '{branch}' not found locally. Restoring from remote..."
+                                )
+                                self._run_git(
+                                    ["checkout", "-b", branch, f"origin/{branch}"],
+                                    cwd=self.root,
+                                )
+                                self.log(
+                                    f"Restored branch '{branch}' from remote and switched to it"
+                                )
+
                     bl = task.metadata.get("Bl", [])
                     if not isinstance(bl, list):
                         bl = []
@@ -1290,6 +1315,24 @@ class TasksCLI:
             res = self._run_git(["log", "-1", "--format=%H", branch])
             if res.returncode == 0:
                 branch_sha = res.stdout.strip()
+
+        # Auto-restore branch from remote if moving to PROGRESSING and branch is missing
+        if new_status == "PROGRESSING" and not branch_sha:
+            has_origin = self._run_git(["remote", "get-url", "origin"]).returncode == 0
+            if has_origin:
+                # Check if branch exists on remote
+                remote_check = self._run_git(["ls-remote", "--heads", "origin", branch])
+                if remote_check.stdout.strip():
+                    self.log(
+                        f"Branch '{branch}' not found locally. Restoring from remote..."
+                    )
+                    self._run_git(
+                        ["checkout", "-b", branch, f"origin/{branch}"], cwd=self.root
+                    )
+                    branch_sha = self._run_git(["rev-parse", branch]).stdout.strip()
+                    self.log(
+                        f"Restored branch '{branch}' from remote and switched to it"
+                    )
 
         if not force:
             has_origin = self._run_git(["remote", "get-url", "origin"]).returncode == 0
