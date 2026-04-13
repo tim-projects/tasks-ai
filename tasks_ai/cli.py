@@ -647,7 +647,7 @@ class TasksCLI:
                 hint="Use 'tasks list' to see all available task filenames/IDs.",
             )
         task = FM.load(filepath)
-        fname = os.path.basename(filepath)
+        fname = os.path.basename(filepath)  # type: ignore[arg-type]
         task_id = fname.rsplit(".", 1)[0]
         tt, _ = self._parse_filename(fname)
         updated = False
@@ -903,8 +903,6 @@ class TasksCLI:
                 meta_file = os.path.join(task_dir_path, "meta.json")
                 if os.path.exists(meta_file):
                     try:
-                        import json
-
                         with open(meta_file, "r") as f:
                             meta = json.load(f)
                         if str(meta.get("Id")) == str(start_id):

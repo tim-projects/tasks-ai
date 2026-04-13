@@ -1,0 +1,12 @@
+{
+  "include": ["tasks_ai", "test_*.py", "repo.py", "tasks.py", "check.py"],
+  "exclude": ["__pycache__", ".pytest_cache", "venv", "*.pyc"],
+  "typeCheckingMode": "basic",
+  "reportMissingTypeStubs": false,
+  "pythonVersion": "3.11",
+  "reportOptionalMemberAccess": "none",
+  "reportOptionalSubscript": "none",
+  "reportCallIssue": "none",
+  "reportArgumentType": "none",
+  "reportPossiblyUnboundVariable": false
+}
