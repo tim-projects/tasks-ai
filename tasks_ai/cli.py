@@ -187,15 +187,16 @@ class TasksCLI:
         if not os.path.exists(check_path):
             return
         result = subprocess.run(
-            [sys.executable, check_path, "all"] + (["--fix"] if fix else []),
+            [sys.executable, check_path, "lint"] + (["--fix"] if fix else []),
             cwd=self.root,
             capture_output=True,
             text=True,
+            timeout=60,
         )
         if result.returncode != 0:
             self.error(
                 "Validation failed. Fix errors before proceeding.",
-                hint="Run 'python check.py all' to see errors.",
+                hint="Run 'python check.py lint' to see errors.",
             )
 
     def _parse_filename(self, name):
