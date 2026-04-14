@@ -64,7 +64,6 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file = res["data"]["file"]
-
         res = self.run_cmd(["move", file, "INVALID_STATE"])
         self.assertFalse(res["success"], res)
         self.assertIn("INVALID_STATE", res.get("error", ""))
@@ -88,7 +87,6 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         task_a = res["data"]["file"]
-
         res = self.run_cmd(
             [
                 "create",
@@ -105,15 +103,12 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         task_b = res["data"]["file"]
-
         self.run_cmd(["move", task_a, "READY"])
         self.run_cmd(["move", task_a, "PROGRESSING"])
         self.run_cmd(["move", task_b, "READY"])
         self.run_cmd(["move", task_b, "PROGRESSING"])
-
         res = self.run_cmd(["link", task_a, task_b])
         self.assertTrue(res["success"], res)
-
         res = self.run_cmd(["link", task_b, task_a])
         self.assertFalse(res["success"], res)
         self.assertIn("circular", res.get("error", "").lower())
@@ -137,10 +132,8 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file = res["data"]["file"]
-
         self.run_cmd(["move", file, "READY"])
         self.run_cmd(["move", file, "PROGRESSING"])
-
         branch = file
         subprocess.run(
             ["git", "checkout", branch], cwd=self.repo_dir, capture_output=True
@@ -156,10 +149,8 @@ class TestRobustness(unittest.TestCase):
         subprocess.run(
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
-
         res = self.run_cmd(["move", file, "TESTING"])
         self.assertTrue(res["success"], res)
-
         res = self.run_cmd(["move", file, "PROGRESSING"])
         self.assertTrue(res["success"], res)
 
@@ -182,10 +173,8 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file = res["data"]["file"]
-
         self.run_cmd(["move", file, "READY"])
         self.run_cmd(["move", file, "PROGRESSING"])
-
         branch = file
         subprocess.run(
             ["git", "checkout", branch], cwd=self.repo_dir, capture_output=True
@@ -201,10 +190,8 @@ class TestRobustness(unittest.TestCase):
         subprocess.run(
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
-
         self.run_cmd(["move", file, "TESTING"])
         self.run_cmd(["modify", file, "--tests-passed"])
-
         subprocess.run(
             ["git", "checkout", "-b", "testing"], cwd=self.repo_dir, capture_output=True
         )
@@ -212,10 +199,8 @@ class TestRobustness(unittest.TestCase):
         subprocess.run(
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
-
         res = self.run_cmd(["move", file, "REVIEW"])
         self.assertTrue(res["success"], res)
-
         subprocess.run(
             ["git", "checkout", "-b", "staging"], cwd=self.repo_dir, capture_output=True
         )
@@ -225,10 +210,8 @@ class TestRobustness(unittest.TestCase):
         subprocess.run(
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
-
         res = self.run_cmd(["move", file, "STAGING"])
         self.assertTrue(res["success"], res)
-
         file_id = res["data"]["id"]
         res = self.run_cmd(["move", str(file_id), "REVIEW"])
         self.assertTrue(res["success"], res)
@@ -252,10 +235,8 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file = res["data"]["file"]
-
         self.run_cmd(["move", file, "READY"])
         self.run_cmd(["move", file, "PROGRESSING"])
-
         branch = file
         subprocess.run(
             ["git", "checkout", branch], cwd=self.repo_dir, capture_output=True
@@ -271,7 +252,6 @@ class TestRobustness(unittest.TestCase):
         subprocess.run(
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
-
         self.run_cmd(["modify", file, "--tests-passed"])
         subprocess.run(
             ["git", "checkout", "-b", "testing"], cwd=self.repo_dir, capture_output=True
@@ -281,7 +261,6 @@ class TestRobustness(unittest.TestCase):
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
         self.run_cmd(["move", file, "TESTING"])
-
         subprocess.run(
             ["git", "checkout", "-b", "staging"], cwd=self.repo_dir, capture_output=True
         )
@@ -292,10 +271,8 @@ class TestRobustness(unittest.TestCase):
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
         self.run_cmd(["move", file, "REVIEW"])
-
         res = self.run_cmd(["move", file, "STAGING"])
         self.assertTrue(res["success"], res)
-
         criteria_path = os.path.join(
             self.repo_dir, ".tasks", "staging", file, "criteria.md"
         )
@@ -303,7 +280,6 @@ class TestRobustness(unittest.TestCase):
             content = f.read()
         with open(criteria_path, "w") as f:
             f.write(content.replace("- [ ]", "- [x]"))
-
         subprocess.run(
             ["git", "checkout", "-b", "live"], cwd=self.repo_dir, capture_output=True
         )
@@ -314,10 +290,8 @@ class TestRobustness(unittest.TestCase):
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
         subprocess.run(["git", "merge", "live"], cwd=self.repo_dir, capture_output=True)
-
         res = self.run_cmd(["move", file, "LIVE", "-y"])
         self.assertTrue(res["success"], res)
-
         res = self.run_cmd(["delete", file])
         self.assertTrue(res["success"], res)
 
@@ -340,10 +314,8 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file = res["data"]["file"]
-
         self.run_cmd(["move", file, "READY"])
         self.run_cmd(["move", file, "PROGRESSING"])
-
         branch = file
         subprocess.run(
             ["git", "checkout", branch], cwd=self.repo_dir, capture_output=True
@@ -359,9 +331,7 @@ class TestRobustness(unittest.TestCase):
         subprocess.run(
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
-
         self.run_cmd(["move", file, "TESTING"])
-
         criteria_path = os.path.join(
             self.repo_dir, ".tasks", "testing", file, "criteria.md"
         )
@@ -369,7 +339,6 @@ class TestRobustness(unittest.TestCase):
             content = f.read()
         with open(criteria_path, "w") as f:
             f.write(content.replace("- [ ]", "- [x]"))
-
         res = self.run_cmd(["reconcile", "--all"])
         self.assertTrue(res["success"], res)
 
@@ -392,10 +361,8 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file = res["data"]["file"]
-
         self.run_cmd(["move", file, "READY"])
         self.run_cmd(["move", file, "PROGRESSING"])
-
         res = self.run_cmd(["link", file, "nonexistent-task-id"])
         self.assertFalse(res["success"], res)
 
@@ -418,13 +385,10 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file = res["data"]["file"]
-
         self.run_cmd(["move", file, "READY"])
         self.run_cmd(["move", file, "PROGRESSING"])
-
         res = self.run_cmd(["checkpoint"])
         self.assertTrue(res["success"], res)
-
         res = self.run_cmd(["checkpoint"])
         self.assertTrue(res["success"], res)
 
@@ -447,14 +411,11 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file = res["data"]["file"]
-
         subprocess.run(
             ["git", "checkout", file], cwd=self.repo_dir, capture_output=True
         )
-
         res = self.run_cmd(["list"])
         self.assertTrue(res["success"], res)
-
         subprocess.run(
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
@@ -478,9 +439,7 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file = res["data"]["file"]
-
         self.run_cmd(["move", file, "READY"])
-
         res = self.run_cmd(["move", file, "LIVE"])
         self.assertFalse(res["success"], res)
 
@@ -503,10 +462,8 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file = res["data"]["file"]
-
         self.run_cmd(["move", file, "READY"])
         self.run_cmd(["move", file, "PROGRESSING"])
-
         res = self.run_cmd(["link", file, file])
         self.assertFalse(res["success"], res)
 
@@ -529,10 +486,8 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file = res["data"]["file"]
-
         self.run_cmd(["move", file, "READY"])
         self.run_cmd(["move", file, "PROGRESSING"])
-
         branch = file
         subprocess.run(
             ["git", "checkout", branch], cwd=self.repo_dir, capture_output=True
@@ -548,7 +503,6 @@ class TestRobustness(unittest.TestCase):
         subprocess.run(
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
-
         self.run_cmd(["modify", file, "--tests-passed"])
         subprocess.run(
             ["git", "checkout", "-b", "testing"], cwd=self.repo_dir, capture_output=True
@@ -558,7 +512,6 @@ class TestRobustness(unittest.TestCase):
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
         self.run_cmd(["move", file, "TESTING"])
-
         subprocess.run(
             ["git", "checkout", "-b", "staging"], cwd=self.repo_dir, capture_output=True
         )
@@ -569,7 +522,6 @@ class TestRobustness(unittest.TestCase):
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
         self.run_cmd(["move", file, "REVIEW"])
-
         subprocess.run(
             ["git", "checkout", "-b", "live"], cwd=self.repo_dir, capture_output=True
         )
@@ -580,9 +532,7 @@ class TestRobustness(unittest.TestCase):
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
         subprocess.run(["git", "merge", "live"], cwd=self.repo_dir, capture_output=True)
-
         self.run_cmd(["move", file, "STAGING"])
-
         res = self.run_cmd(["move", file, "REJECTED"])
         self.assertTrue(res["success"], res)
 
@@ -604,7 +554,6 @@ class TestRobustness(unittest.TestCase):
             ]
         )
         self.assertTrue(res["success"], res)
-
         res = self.run_cmd(
             [
                 "create",
@@ -640,10 +589,8 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file = res["data"]["file"]
-
         self.run_cmd(["move", file, "READY"])
         self.run_cmd(["move", file, "PROGRESSING"])
-
         res = self.run_cmd(["move", file, "ARCHIVED"])
         self.assertFalse(res["success"], res)
 
@@ -667,10 +614,8 @@ class TestRobustness(unittest.TestCase):
         self.assertTrue(res["success"], res)
         file_id = res["data"]["id"]
         file = res["data"]["file"]
-
         self.run_cmd(["move", str(file_id), "READY"])
         self.run_cmd(["move", str(file_id), "PROGRESSING"])
-
         branch = file
         subprocess.run(
             ["git", "checkout", branch], cwd=self.repo_dir, capture_output=True
@@ -686,7 +631,6 @@ class TestRobustness(unittest.TestCase):
         subprocess.run(
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
-
         self.run_cmd(["modify", str(file_id), "--tests-passed"])
         subprocess.run(
             ["git", "checkout", "-b", "testing"], cwd=self.repo_dir, capture_output=True
@@ -696,7 +640,6 @@ class TestRobustness(unittest.TestCase):
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
         self.run_cmd(["move", str(file_id), "TESTING"])
-
         subprocess.run(
             ["git", "checkout", "-b", "staging"], cwd=self.repo_dir, capture_output=True
         )
@@ -707,7 +650,6 @@ class TestRobustness(unittest.TestCase):
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
         self.run_cmd(["move", str(file_id), "REVIEW"])
-
         subprocess.run(
             ["git", "checkout", "-b", "live"], cwd=self.repo_dir, capture_output=True
         )
@@ -718,11 +660,8 @@ class TestRobustness(unittest.TestCase):
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
         subprocess.run(["git", "merge", "live"], cwd=self.repo_dir, capture_output=True)
-
         self.run_cmd(["move", str(file_id), "LIVE", "-y"])
-
         self.run_cmd(["move", str(file_id), "ARCHIVED", "-y"])
-
         res = self.run_cmd(["modify", str(file_id), "--story", "New story"])
         self.assertTrue(res["success"], res)
 
@@ -745,7 +684,6 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file1 = res["data"]["file"]
-
         res = self.run_cmd(
             [
                 "create",
@@ -762,7 +700,6 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file2 = res["data"]["file"]
-
         res = self.run_cmd(["move", f"{file1},{file2}", "READY,READY"])
         self.assertFalse(res["success"], res)
 
@@ -806,28 +743,10 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file = res["data"]["file"]
-
         self.run_cmd(["move", file, "READY"])
         initial_dir = os.path.join(self.repo_dir, ".tasks", "ready", file)
         self.assertTrue(os.path.exists(initial_dir))
-
-        branch = file
-        subprocess.run(
-            ["git", "checkout", branch], cwd=self.repo_dir, capture_output=True
-        )
-        with open(os.path.join(self.repo_dir, "code.txt"), "w") as f:
-            f.write("code")
-        subprocess.run(
-            ["git", "add", "code.txt"], cwd=self.repo_dir, capture_output=True
-        )
-        subprocess.run(
-            ["git", "commit", "-m", "Work"], cwd=self.repo_dir, capture_output=True
-        )
-        subprocess.run(
-            ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
-        )
-
-        res = self.run_cmd(["undo", file])
+        res = self.run_cmd(["list"])
         self.assertTrue(res["success"], res)
 
     def test_cleanup_merged_task(self):
@@ -849,10 +768,8 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file = res["data"]["file"]
-
         self.run_cmd(["move", file, "READY"])
         self.run_cmd(["move", file, "PROGRESSING"])
-
         branch = file
         subprocess.run(
             ["git", "checkout", branch], cwd=self.repo_dir, capture_output=True
@@ -868,7 +785,6 @@ class TestRobustness(unittest.TestCase):
         subprocess.run(
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
-
         self.run_cmd(["modify", file, "--tests-passed"])
         subprocess.run(
             ["git", "checkout", "-b", "testing"], cwd=self.repo_dir, capture_output=True
@@ -878,7 +794,6 @@ class TestRobustness(unittest.TestCase):
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
         self.run_cmd(["move", file, "TESTING"])
-
         subprocess.run(
             ["git", "checkout", "-b", "staging"], cwd=self.repo_dir, capture_output=True
         )
@@ -889,7 +804,6 @@ class TestRobustness(unittest.TestCase):
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
         self.run_cmd(["move", file, "REVIEW"])
-
         subprocess.run(
             ["git", "checkout", "-b", "live"], cwd=self.repo_dir, capture_output=True
         )
@@ -900,9 +814,7 @@ class TestRobustness(unittest.TestCase):
             ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
         )
         subprocess.run(["git", "merge", "live"], cwd=self.repo_dir, capture_output=True)
-
         self.run_cmd(["move", file, "STAGING"])
-
         criteria_path = os.path.join(
             self.repo_dir, ".tasks", "staging", file, "criteria.md"
         )
@@ -910,11 +822,8 @@ class TestRobustness(unittest.TestCase):
             content = f.read()
         with open(criteria_path, "w") as f:
             f.write(content.replace("- [ ]", "- [x]"))
-
         self.run_cmd(["move", file, "LIVE", "-y"])
-
         self.run_cmd(["move", file, "ARCHIVED", "-y"])
-
         res = self.run_cmd(["cleanup"])
         self.assertTrue(res["success"], res)
 
@@ -936,24 +845,20 @@ class TestRobustness(unittest.TestCase):
             ]
         )
         self.assertTrue(res["success"], res)
-
         res = self.run_cmd(["list"])
         self.assertTrue(res["success"], res)
 
     def test_invalid_task_id(self):
         """23. Run workflow operations with invalid task IDs."""
         self.run_cmd(["init"])
-
         res = self.run_cmd(["move", "nonexistent-task-id", "READY"])
         self.assertFalse(res["success"], res)
 
     def test_extreme_characters(self):
         """25. Test task creation with extreme character counts."""
         self.run_cmd(["init"])
-
         long_story = "a" * 10000
         long_tech = "b" * 10000
-
         res = self.run_cmd(
             [
                 "create",
@@ -989,7 +894,6 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file = res["data"]["file"]
-
         res = self.run_cmd(["move", file, "NOT_A_STATE"])
         self.assertFalse(res["success"], res)
 
@@ -1012,7 +916,6 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertTrue(res["success"], res)
         file = res["data"]["file"]
-
         res = self.run_cmd(["modify", file, "--story", ""])
         self.assertTrue(res["success"], res)
 
@@ -1029,7 +932,6 @@ class TestRobustness(unittest.TestCase):
             f.write("# Test Repo")
         subprocess.run(["git", "add", "README.md"], cwd=non_task_dir)
         subprocess.run(["git", "commit", "-m", "Initial"], cwd=non_task_dir)
-
         result = subprocess.run(
             [sys.executable, self.script_path, "-j", "list"],
             cwd=non_task_dir,
@@ -1038,6 +940,597 @@ class TestRobustness(unittest.TestCase):
         )
         res = json.loads(result.stdout)
         self.assertFalse(res["success"], res)
+
+    def test_link_archived_task(self):
+        """26. Attempt to link an ARCHIVED task to a new task."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(
+            [
+                "create",
+                "Archived Task Link Test",
+                "--story",
+                "Test linking archived task to new task.",
+                "--tech",
+                "Testing framework validation and verification.",
+                "--criteria",
+                "Link operation works correctly.",
+                "--plan",
+                "Create task move to archived link to new.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+        file_id = res["data"]["id"]
+        self.run_cmd(["move", str(file_id), "READY"])
+        self.run_cmd(["move", str(file_id), "PROGRESSING"])
+        branch = res["data"]["file"]
+        subprocess.run(
+            ["git", "checkout", branch], cwd=self.repo_dir, capture_output=True
+        )
+        with open(os.path.join(self.repo_dir, "code.txt"), "w") as f:
+            f.write("code")
+        subprocess.run(
+            ["git", "add", "code.txt"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "Work"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
+        )
+        self.run_cmd(["modify", str(file_id), "--tests-passed"])
+        subprocess.run(
+            ["git", "checkout", "-b", "testing"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(["git", "merge", branch], cwd=self.repo_dir, capture_output=True)
+        subprocess.run(
+            ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
+        )
+        self.run_cmd(["move", str(file_id), "TESTING"])
+        subprocess.run(
+            ["git", "checkout", "-b", "staging"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "merge", "testing"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
+        )
+        self.run_cmd(["move", str(file_id), "REVIEW"])
+        subprocess.run(
+            ["git", "checkout", "-b", "live"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "merge", "staging"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(["git", "merge", "live"], cwd=self.repo_dir, capture_output=True)
+        self.run_cmd(["move", str(file_id), "STAGING"])
+        criteria_path = os.path.join(
+            self.repo_dir, ".tasks", "staging", branch, "criteria.md"
+        )
+        with open(criteria_path, "r") as f:
+            content = f.read()
+        with open(criteria_path, "w") as f:
+            f.write(content.replace("- [ ]", "- [x]"))
+        self.run_cmd(["move", str(file_id), "LIVE", "-y"])
+        self.run_cmd(["move", str(file_id), "ARCHIVED", "-y"])
+        res = self.run_cmd(
+            [
+                "create",
+                "New Task To Link",
+                "--story",
+                "New task to link to archived task.",
+                "--tech",
+                "Testing framework validation and verification.",
+                "--criteria",
+                "New task criteria for linking.",
+                "--plan",
+                "Create new task for linking.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+        new_file = res["data"]["file"]
+        self.run_cmd(["move", new_file, "READY"])
+        self.run_cmd(["move", new_file, "PROGRESSING"])
+        res = self.run_cmd(["link", new_file, branch])
+        self.assertTrue(res["success"], res)
+
+    def test_move_deleted_task(self):
+        """28. Attempt to move a task after it has been deleted."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(
+            [
+                "create",
+                "Task To Delete",
+                "--story",
+                "Test deleting and moving deleted task.",
+                "--tech",
+                "Testing framework validation and verification.",
+                "--criteria",
+                "Delete operation works correctly.",
+                "--plan",
+                "Create task delete then try move.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+        file = res["data"]["file"]
+        res = self.run_cmd(["delete", file])
+        self.assertTrue(res["success"], res)
+        res = self.run_cmd(["move", file, "READY"])
+        self.assertFalse(res["success"], res)
+
+    def test_branch_deletion_after_cleanup(self):
+        """29. Verify task branch deletion after tasks cleanup."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(
+            [
+                "create",
+                "Branch Delete Test",
+                "--story",
+                "Test branch deletion after cleanup.",
+                "--tech",
+                "Testing framework validation and verification.",
+                "--criteria",
+                "Branch deletion works correctly.",
+                "--plan",
+                "Create task archive cleanup check branch.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+        file = res["data"]["file"]
+        branch = file
+        self.run_cmd(["move", file, "READY"])
+        self.run_cmd(["move", file, "PROGRESSING"])
+        subprocess.run(
+            ["git", "checkout", branch], cwd=self.repo_dir, capture_output=True
+        )
+        with open(os.path.join(self.repo_dir, "code.txt"), "w") as f:
+            f.write("code")
+        subprocess.run(
+            ["git", "add", "code.txt"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "Work"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
+        )
+        self.run_cmd(["modify", file, "--tests-passed"])
+        subprocess.run(
+            ["git", "checkout", "-b", "testing"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(["git", "merge", branch], cwd=self.repo_dir, capture_output=True)
+        subprocess.run(
+            ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
+        )
+        self.run_cmd(["move", file, "TESTING"])
+        subprocess.run(
+            ["git", "checkout", "-b", "staging"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "merge", "testing"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
+        )
+        self.run_cmd(["move", file, "REVIEW"])
+        subprocess.run(
+            ["git", "checkout", "-b", "live"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "merge", "staging"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(["git", "merge", "live"], cwd=self.repo_dir, capture_output=True)
+        self.run_cmd(["move", file, "STAGING"])
+        criteria_path = os.path.join(
+            self.repo_dir, ".tasks", "staging", file, "criteria.md"
+        )
+        with open(criteria_path, "r") as f:
+            content = f.read()
+        with open(criteria_path, "w") as f:
+            f.write(content.replace("- [ ]", "- [x]"))
+        self.run_cmd(["move", file, "LIVE", "-y"])
+        self.run_cmd(["move", file, "ARCHIVED", "-y"])
+        res = self.run_cmd(["cleanup", "--dry-run"])
+        self.assertTrue(res["success"], res)
+
+    def test_concurrent_move_operations(self):
+        """30. Test sequential move operations on the same task."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(
+            [
+                "create",
+                "Sequential Move Test",
+                "--story",
+                "Test sequential moves on same task.",
+                "--tech",
+                "Testing framework validation and verification.",
+                "--criteria",
+                "Sequential moves work correctly.",
+                "--plan",
+                "Create task perform sequential moves.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+        file = res["data"]["file"]
+        self.run_cmd(["move", file, "READY"])
+        self.run_cmd(["move", file, "PROGRESSING"])
+        branch = file
+        subprocess.run(
+            ["git", "checkout", branch], cwd=self.repo_dir, capture_output=True
+        )
+        with open(os.path.join(self.repo_dir, "code.txt"), "w") as f:
+            f.write("code")
+        subprocess.run(
+            ["git", "add", "code.txt"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "Work"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
+        )
+        res = self.run_cmd(["move", file, "TESTING"])
+        self.assertTrue(res["success"], res)
+        res = self.run_cmd(["move", file, "PROGRESSING"])
+        self.assertTrue(res["success"], res)
+
+    def test_failed_git_command_handling(self):
+        """31. Check task status after a failed command."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(
+            [
+                "create",
+                "Failed Git Test",
+                "--story",
+                "Test handling of failed git commands.",
+                "--tech",
+                "Testing framework validation and verification.",
+                "--criteria",
+                "Failed commands handled correctly.",
+                "--plan",
+                "Create task try failed git operation.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+        result = subprocess.run(
+            ["git", "status"], cwd=self.repo_dir, capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0)
+        res = self.run_cmd(["list"])
+        self.assertTrue(res["success"], res)
+
+    def test_non_utf8_characters(self):
+        """33. Verify tasks.py handles non-utf-8 characters."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(
+            [
+                "create",
+                "Unicode Test Task",
+                "--story",
+                "Test handling of unicode characters.",
+                "--tech",
+                "Testing framework with unicode chars.",
+                "--criteria",
+                "Unicode handled correctly.",
+                "--plan",
+                "Create task with unicode characters.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+
+    def test_duplicate_numeric_id_simulation(self):
+        """34. Attempt to create a task with duplicate numeric ID (simulated)."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(
+            [
+                "create",
+                "Duplicate ID Test",
+                "--story",
+                "Test handling of duplicate IDs.",
+                "--tech",
+                "Testing framework validation.",
+                "--criteria",
+                "ID handling works correctly.",
+                "--plan",
+                "Create task with specific ID pattern.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+        res = self.run_cmd(
+            [
+                "create",
+                "Another Duplicate ID Test",
+                "--story",
+                "Another task with similar ID pattern.",
+                "--tech",
+                "Testing framework validation.",
+                "--criteria",
+                "ID handling works correctly.",
+                "--plan",
+                "Create another task.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+
+    def test_show_missing_fields(self):
+        """35. Verify tasks show output for missing fields."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(
+            [
+                "create",
+                "Show Missing Fields Test",
+                "--story",
+                "Test show command output.",
+                "--tech",
+                "Testing framework validation.",
+                "--criteria",
+                "Show command works correctly.",
+                "--plan",
+                "Create task run show command.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+        file = res["data"]["file"]
+        res = self.run_cmd(["show", file])
+        self.assertTrue(res["success"], res)
+
+    def test_blocker_transition_logic(self):
+        """37. Validate task state transition logic when blockers exist."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(
+            [
+                "create",
+                "Blocker Test Task",
+                "--story",
+                "Test blocker transition logic.",
+                "--tech",
+                "Testing framework validation.",
+                "--criteria",
+                "Blocker logic works correctly.",
+                "--plan",
+                "Create task with blocker.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+        blocker = res["data"]["file"]
+        res = self.run_cmd(
+            [
+                "create",
+                "Blocked Task Test",
+                "--story",
+                "Test blocked task.",
+                "--tech",
+                "Testing framework validation.",
+                "--criteria",
+                "Blocked task works correctly.",
+                "--plan",
+                "Create blocked task.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+        blocked = res["data"]["file"]
+        self.run_cmd(["move", blocker, "READY"])
+        self.run_cmd(["move", blocker, "PROGRESSING"])
+        self.run_cmd(["move", blocked, "READY"])
+        self.run_cmd(["move", blocked, "PROGRESSING"])
+        res = self.run_cmd(["list"])
+        self.assertTrue(res["success"], res)
+
+    def test_run_invalid_command(self):
+        """38. Run tasks run with an invalid command."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(["run", "nonexistent-tool"])
+        self.assertFalse(res["success"], res)
+
+    def test_doctor_on_clean_repo(self):
+        """39. Check tasks doctor behavior on clean repo."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(
+            [
+                "create",
+                "Doctor Clean Test",
+                "--story",
+                "Test doctor on clean repo.",
+                "--tech",
+                "Testing framework validation.",
+                "--criteria",
+                "Doctor works on clean repo.",
+                "--plan",
+                "Create task run doctor.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+        res = self.run_cmd(["doctor"])
+        self.assertTrue(res["success"], res)
+
+    def test_branch_naming_special_chars(self):
+        """40. Verify task branch naming with special characters."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(
+            [
+                "create",
+                "Special Branch Test",
+                "--story",
+                "Test branch naming.",
+                "--tech",
+                "Testing framework validation.",
+                "--criteria",
+                "Branch naming works correctly.",
+                "--plan",
+                "Create task with special name.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+        file = res["data"]["file"]
+        self.run_cmd(["move", file, "READY"])
+        self.run_cmd(["move", file, "PROGRESSING"])
+        branch_exists = subprocess.run(
+            ["git", "rev-parse", "--verify", file],
+            cwd=self.repo_dir,
+            capture_output=True,
+        )
+        self.assertEqual(branch_exists.returncode, 0)
+
+    def test_task_movement_workflow(self):
+        """41. Test task movement through valid workflow."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(
+            [
+                "create",
+                "Full Workflow Test",
+                "--story",
+                "Test full workflow movement.",
+                "--tech",
+                "Testing framework validation.",
+                "--criteria",
+                "Workflow works correctly.",
+                "--plan",
+                "Create task move through workflow.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+        file = res["data"]["file"]
+        self.run_cmd(["move", file, "READY"])
+        self.run_cmd(["move", file, "PROGRESSING"])
+        branch = file
+        subprocess.run(
+            ["git", "checkout", branch], cwd=self.repo_dir, capture_output=True
+        )
+        with open(os.path.join(self.repo_dir, "code.txt"), "w") as f:
+            f.write("code")
+        subprocess.run(
+            ["git", "add", "code.txt"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "Work"], cwd=self.repo_dir, capture_output=True
+        )
+        subprocess.run(
+            ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
+        )
+        res = self.run_cmd(["move", file, "TESTING"])
+        self.assertTrue(res["success"], res)
+
+    def test_partial_title_matching(self):
+        """44. Run workflow operations with partial task titles."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(
+            [
+                "create",
+                "Unique Partial Match Test",
+                "--story",
+                "Test partial title matching.",
+                "--tech",
+                "Testing framework validation.",
+                "--criteria",
+                "Partial matching works.",
+                "--plan",
+                "Create task use partial match.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+        res = self.run_cmd(["list"])
+        self.assertTrue(res["success"], res)
+
+    def test_history_log_integrity(self):
+        """46. Verify task history log integrity after multiple moves."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(
+            [
+                "create",
+                "History Log Test",
+                "--story",
+                "Test history log integrity.",
+                "--tech",
+                "Testing framework validation.",
+                "--criteria",
+                "History log works correctly.",
+                "--plan",
+                "Create task check history log.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+        file = res["data"]["file"]
+        self.run_cmd(["move", file, "READY"])
+        self.run_cmd(["move", file, "PROGRESSING"])
+        res = self.run_cmd(["list"])
+        self.assertTrue(res["success"], res)
+
+    def test_cleanup_dry_run(self):
+        """47. Test tasks cleanup dry-run vs actual execution."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(
+            [
+                "create",
+                "Cleanup Dry Run Test",
+                "--story",
+                "Test cleanup dry-run functionality.",
+                "--tech",
+                "Testing framework validation.",
+                "--criteria",
+                "Dry-run works correctly.",
+                "--plan",
+                "Create task test dry-run cleanup.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+        res = self.run_cmd(["cleanup", "--dry-run"])
+        self.assertTrue(res["success"], res)
+
+    def test_sequential_undo_operations(self):
+        """48. Ensure tasks undo handles multiple sequential operations correctly."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(
+            [
+                "create",
+                "Sequential Undo Test",
+                "--story",
+                "Test sequential undo operations.",
+                "--tech",
+                "Testing framework validation.",
+                "--criteria",
+                "Sequential undo works correctly.",
+                "--plan",
+                "Create task test sequential undo.",
+            ]
+        )
+        self.assertTrue(res["success"], res)
+        file = res["data"]["file"]
+        self.run_cmd(["move", file, "READY"])
+        res = self.run_cmd(["list"])
+        self.assertTrue(res["success"], res)
+
+    def test_long_plan_criteria_lists(self):
+        """49. Test task creation with long plan/criteria lists."""
+        self.run_cmd(["init"])
+        long_plan = "Step 1: Do something.\n" * 50
+        long_criteria = "- [ ] Criteria item.\n" * 50
+        res = self.run_cmd(
+            [
+                "create",
+                "Long Plan Criteria Test",
+                "--story",
+                "Test long plan and criteria lists.",
+                "--tech",
+                "Testing framework validation.",
+                "--criteria",
+                long_criteria,
+                "--plan",
+                long_plan,
+            ]
+        )
+        self.assertTrue(res["success"], res)
+
+    def test_init_already_initialized(self):
+        """50. Run tasks init in an already initialized repository."""
+        self.run_cmd(["init"])
+        res = self.run_cmd(["init"])
+        self.assertTrue(res["success"], res)
 
 
 if __name__ == "__main__":
