@@ -119,6 +119,17 @@ tasks reconcile --all               # Clean up merged branches and archive tasks
 tasks doctor                        # Diagnose task data and git state
 ```
 
+### Development Tools
+
+```bash
+check lint                      # Run linter
+check test                      # Run tests
+check typecheck                 # Run type checker
+check format                    # Run formatter
+check all                       # Run all checks
+check lint --fix               # Auto-fix lint errors
+```
+
 ### Validation & Tools
 
 ```bash
