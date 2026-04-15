@@ -149,7 +149,8 @@ class ToolRunner:
         pass
 
     def run_validation(self, fix=False, dev=False):
-        check_py = os.path.join(os.getcwd(), "check.py")
+        git_root = find_project_root()
+        check_py = os.path.join(git_root, "check.py")
         check_cmd = shutil.which("check")
         if not os.path.exists(check_py) and not check_cmd:
             warn("check.py not found, skipping tool validation")
@@ -168,7 +169,6 @@ class ToolRunner:
         # Simpler: just run 'check all'
         log("Running codebase validation (check all)...")
         # Prefer local check.py over system check
-        git_root = self._get_git_root()
         local_check = os.path.join(git_root, "check.py")
         if os.path.exists(local_check):
             cmd = [sys.executable, local_check, "all"]
