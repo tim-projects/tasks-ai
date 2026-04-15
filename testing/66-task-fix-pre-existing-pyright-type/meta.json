@@ -3,5 +3,6 @@
   "Ti": "Fix pre-existing pyright type errors",
   "Cr": "260415 17:45",
   "Bl": [],
-  "Pr": 1
+  "Pr": 1,
+  "Tp": true
 }
