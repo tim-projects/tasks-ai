@@ -10,7 +10,9 @@ from tasks_ai.cli import TasksCLI
 @pytest.fixture
 def setup_tasks():
     # Setup a temp environment
-    sys._called_from_test = True
+    # Use private attribute for test detection
+    if not hasattr(sys, "_called_from_test"):
+        sys._called_from_test = True
     test_dir = tempfile.mkdtemp()
     repo_dir = os.path.join(test_dir, "repo")
     os.makedirs(repo_dir)
