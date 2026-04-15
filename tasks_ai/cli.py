@@ -1451,7 +1451,15 @@ class TasksCLI:
                     )
 
         if new_status == "ARCHIVED" and self._has_incomplete_checkboxes(filepath):
-            self.error("Cannot archive task: contains unfinished checkboxes (- [ ])")
+            self.error(
+                "Cannot archive task: contains unfinished checkboxes (- [ ])",
+                hint="Edit .tasks/staging/<task>/criteria.md and change '- [ ]' to '- [x]' for completed items, or use: sed -i 's/- \\[ \\]/- [x]/g' .tasks/staging/<task>/criteria.md",
+            )
+        if new_status == "LIVE" and self._has_incomplete_checkboxes(filepath):
+            self.error(
+                "Cannot move to LIVE: contains unfinished checkboxes (- [ ])",
+                hint="Edit .tasks/staging/<task>/criteria.md and change '- [ ]' to '- [x]' for completed items, or use: sed -i 's/- \\[ \\]/- [x]/g' .tasks/staging/<task>/criteria.md",
+            )
         self._sync_task_content(filepath, task, is_final=(new_status == "ARCHIVED"))
         task["St"] = new_status
         new_filepath = os.path.join(
