@@ -1,0 +1,1 @@
+The test_full_lifecycle and test_auto_archival tests fail because checkboxes are not being marked as completed before moving to LIVE. The test code at line 182-189 shows it tries to complete checkboxes AFTER the LIVE move fails, which is too late.

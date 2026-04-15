@@ -1,0 +1,1 @@
+1. 1. Fix the test to complete checkboxes before LIVE move\n2. Run tests to verify

@@ -1,0 +1,1 @@
+The test creates a task, moves it through BACKLOG->TESTING->REVIEW->STAGING->LIVE, but when it tries to move to LIVE it fails due to incomplete checkboxes. The code that completes checkboxes (lines 182-189) runs AFTER the LIVE move fails, so it's useless. The test needs to complete checkboxes BEFORE trying to move to LIVE.
