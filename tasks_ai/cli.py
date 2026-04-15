@@ -1188,6 +1188,25 @@ class TasksCLI:
                 hint="Use 'tasks list' to see all available task filenames/IDs.",
             )
         filepath_str = cast(str, filepath)
+
+        task = FM.load(filepath_str)
+        task_state = task.metadata.get("St", "") if task and task.metadata else ""
+        if task_state and task_state != current_state:
+            self.log(
+                f"Fixing: Task state was '{task_state}', folder is '{current_state}'. Syncing metadata."
+            )
+            task.metadata["St"] = current_state
+            FM.dump(task, filepath_str)
+            self._run_git(["add", "--all"], cwd=self.tasks_path)
+            self._run_git(
+                [
+                    "--allow-empty",
+                    "-m",
+                    f"Fix {os.path.basename(filepath)}: sync state metadata to '{current_state}'",
+                ],
+                cwd=self.tasks_path,
+            )
+
         if current_state == new_status:
             return
         if new_status not in ALLOWED_TRANSITIONS.get(current_state, []) and not force:
@@ -2559,6 +2578,22 @@ class TasksCLI:
                                 "actual": f"Missing fields: {', '.join(missing_fields)}",
                             }
                         )
+
+                    task_state = task.metadata.get("St", "")
+                    if task_state != state:
+                        bugs.append(
+                            {
+                                "id": f"state-mismatch-{item}",
+                                "title": f"Task '{item}' state mismatch",
+                                "repro": f"Task is in '{folder}' but metadata shows state '{task_state}'",
+                                "expected": f"Task state in metadata should match folder ('{state}')",
+                                "actual": f"Task state is '{task_state}' but folder is '{folder}'",
+                            }
+                        )
+                        if fix:
+                            task.metadata["St"] = state
+                            FM.dump(task, task_path)
+                            self.log(f"Fixed: Updated task '{item}' state to '{state}'")
 
         def check_markdown_content():
             for state, folder in STATE_FOLDERS.items():
