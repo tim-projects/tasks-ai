@@ -41,7 +41,17 @@ KEY_MAP = {
     "Tp": "TestsPassed",
 }
 
-ALLOWED_CONFIG_KEYS = {"story", "tech", "criteria", "plan", "tasks_dir"}
+ALLOWED_CONFIG_KEYS = {
+    "story",
+    "tech",
+    "criteria",
+    "plan",
+    "tasks_dir",
+    "repo.lint",
+    "repo.test",
+    "repo.type_check",
+    "repo.format",
+}
 
 AGENT_GUIDANCE = """
 AGENT OPERATIONAL PROTOCOL:

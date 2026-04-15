@@ -2153,7 +2153,7 @@ class TasksCLI:
             if key not in ALLOWED_CONFIG_KEYS:
                 self.error(
                     f"Invalid config key '{key}'.",
-                    hint=f"Allowed keys: {', '.join(ALLOWED_CONFIG_KEYS)}",
+                    hint=f"Allowed keys: {', '.join(sorted(ALLOWED_CONFIG_KEYS))}. Use 'tasks config detect' to auto-detect tools.",
                 )
             cfg[key] = value
             save_config(cfg)
