@@ -196,7 +196,7 @@ class TasksCLI:
         if result.returncode != 0:
             self.error(
                 "Validation failed. Fix errors before proceeding.",
-                hint="Run 'python check.py lint' to see errors.",
+                hint="Run 'check lint' to see errors. Do not bypass this tool.",
             )
 
     def _parse_filename(self, name):
@@ -1090,7 +1090,7 @@ class TasksCLI:
                 ):
                     self.error(
                         f"Forbidden transition: {current_state} -> {target}",
-                        hint=f"Allowed transitions from {current_state} are: {', '.join(ALLOWED_TRANSITIONS.get(current_state, []))}",
+                        hint=f"Allowed transitions from {current_state} are: {', '.join(ALLOWED_TRANSITIONS.get(current_state, []))}. Do not bypass this tool.",
                     )
                 if target == "PROGRESSING":
                     # Check if branch exists locally and restore from remote if needed
@@ -1125,7 +1125,7 @@ class TasksCLI:
                         _, bs = self.find_task(str(b))
                         if bs != "ARCHIVED":
                             self.error(
-                                f"Blocked by {b}. Blocker must be ARCHIVED first."
+                                f"Blocked by {b}. Blocker must be ARCHIVED first. Do not bypass this tool."
                             )
                 try:
                     task = self._perform_move(task, current_state, target, filepath)
@@ -1212,7 +1212,7 @@ class TasksCLI:
         if new_status not in ALLOWED_TRANSITIONS.get(current_state, []) and not force:
             self.error(
                 f"Forbidden transition: {current_state} -> {new_status}",
-                hint=f"Allowed transitions from {current_state} are: {', '.join(ALLOWED_TRANSITIONS.get(current_state, []))}",
+                hint=f"Allowed transitions from {current_state} are: {', '.join(ALLOWED_TRANSITIONS.get(current_state, []))}. Do not bypass this tool.",
             )
 
         # Check tests_passed when moving from TESTING to REVIEW
@@ -1221,7 +1221,7 @@ class TasksCLI:
             if not task.metadata.get("Tp", False):
                 self.error(
                     "Tests must be passed before moving to REVIEW.",
-                    hint="Run 'tasks modify <id> --tests-passed' to mark tests as passed.",
+                    hint="Run 'tasks modify <id> --tests-passed' to mark tests as passed. Do not bypass this tool.",
                 )
             self._run_validation()
 
@@ -1298,7 +1298,7 @@ class TasksCLI:
                         missing.append("repro")
                 self.error(
                     f"Task lacks required content to leave BACKLOG. Missing or incomplete: {', '.join(missing)}",
-                    hint='Use \'tasks modify <id> --story "..." --tech "..." --criteria "..." --plan "..."\' to add details. For issues, also add --repro.',
+                    hint='Use \'tasks modify <id> --story "..." --tech "..." --criteria "..." --plan "..."\' to add details. For issues, also add --repro. Do not bypass this tool.',
                 )
 
         if new_status == "PROGRESSING":
@@ -1308,7 +1308,9 @@ class TasksCLI:
             for b in bl:
                 _, bs = self.find_task(str(b))
                 if bs != "ARCHIVED":
-                    self.error(f"Blocked by {b}. Blocker must be ARCHIVED first.")
+                    self.error(
+                        f"Blocked by {b}. Blocker must be ARCHIVED first. Do not bypass this tool."
+                    )
 
             missing = []
             if (
@@ -1343,7 +1345,7 @@ class TasksCLI:
             if missing:
                 self.error(
                     f"Task lacks sufficient detail to move to PROGRESSING. Missing or incomplete: {', '.join(missing)}",
-                    hint='Use \'tasks show <id>\' to see current content, then \'tasks modify <id> --story "..." --tech "..." --criteria "..." --plan "..."\' to add proper details. For issues, also add --repro. Run \'tasks modify --help\' for syntax help.',
+                    hint='Use \'tasks show <id>\' to see current content, then \'tasks modify <id> --story "..." --tech "..." --criteria "..." --plan "..."\' to add proper details. For issues, also add --repro. Run \'tasks modify --help\' for syntax help. Do not bypass this tool.',
                 )
 
         tt, branch = self._parse_filename(fname)
@@ -1384,7 +1386,7 @@ class TasksCLI:
                         ["ls-remote", "--heads", "origin", branch]
                     ).stdout:
                         self.error(
-                            f"Branch '{branch}' not pushed to remote. Push and try again."
+                            f"Branch '{branch}' not pushed to remote. Push and try again. Do not bypass this tool.",
                         )
 
             if new_status == "REVIEW":
@@ -1399,7 +1401,7 @@ class TasksCLI:
                 )
                 if not testing_sha or merge_base != testing_sha:
                     self.error(
-                        f"Branch '{branch}' not merged to testing. Merge to testing first."
+                        f"Branch '{branch}' not merged to testing. Merge to testing first. Do not bypass this tool.",
                     )
 
             if new_status == "STAGING":
@@ -1412,6 +1414,10 @@ class TasksCLI:
                     == 0
                     else None
                 )
+                if not testing_sha or merge_base != testing_sha:
+                    self.error(
+                        f"Branch '{branch}' not merged to testing. Merge to testing first. Do not bypass this tool.",
+                    )
                 if not testing_sha or merge_base != testing_sha:
                     self.error(
                         f"Branch '{branch}' not merged to testing. Merge to testing first."
@@ -1445,7 +1451,7 @@ class TasksCLI:
                     ).stdout.strip()
                     if merge_base != main_sha:
                         self.error(
-                            f"Branch '{branch}' not merged to main. Merge to main first. Alternatively, move to REJECTED."
+                            f"Branch '{branch}' not merged to main. Merge to main first. Alternatively, move to REJECTED. Do not bypass this tool.",
                         )
                 if yes:
                     # Only delete local branch if task was in LIVE state (completed full pipeline)
