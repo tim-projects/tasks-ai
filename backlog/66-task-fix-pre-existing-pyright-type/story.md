@@ -1,0 +1,1 @@
+The pyright validation reports 1531 errors, mostly from third-party typing_extensions.py. We need a clean typecheck to pass.

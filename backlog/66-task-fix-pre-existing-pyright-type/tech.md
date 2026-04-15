@@ -1,0 +1,1 @@
+Run pyright with exclude patterns for venv, or fix the actual type issues.

@@ -1,0 +1,1 @@
+1. 1. Run pyright to see errors\n2. Add exclude pattern for venv\n3. Or fix actual type issues\n4. Verify pyright passes
