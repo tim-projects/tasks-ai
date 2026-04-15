@@ -148,7 +148,18 @@ class ToolRunner:
         if dev:
             cmd.append("--dev")
 
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        except subprocess.TimeoutExpired:
+            error(
+                "Validation timed out after 10 minutes.\n"
+                "The validation process is taking too long. Possible causes:\n"
+                "  - Too many files to process\n"
+                "  - Infinite loop in validation\n"
+                "  - System is under heavy load\n"
+                "Try running 'check all' manually to see what's happening."
+            )
+
         if result.returncode != 0:
             print(result.stdout)
             print(result.stderr, file=sys.stderr)
