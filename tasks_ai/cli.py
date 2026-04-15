@@ -2052,8 +2052,28 @@ class TasksCLI:
             res_find = self.find_task(branch)
             _, state = res_find
 
-            # Respect workflow gates: only clean up branches for LIVE (completed) or REJECTED tasks
-            if state not in ("LIVE", "REJECTED"):
+            # If task not found in any state folder but branch is merged to main, allow cleanup
+            # (task may have been deleted/archived manually, or is a test branch)
+            if state is None:
+                if is_ancestor:
+                    self.log(
+                        f"Branch '{branch}' merged to main but task not found - cleaning up"
+                    )
+                    if not dry_run:
+                        if has_origin:
+                            self._run_git(["push", "origin", branch], cwd=self.root)
+                        self._run_git(["branch", "-D", branch], cwd=self.root)
+                    cleaned.append(branch)
+                    continue
+                else:
+                    pending_archive.append(
+                        f"{branch} (task not found, not merged to main)"
+                    )
+                    continue
+
+            # Respect workflow gates: only clean up branches for LIVE or REJECTED tasks
+            # (ARCHIVED tasks should also be cleaned up - they completed the pipeline)
+            if state not in ("LIVE", "REJECTED", "ARCHIVED"):
                 pending_archive.append(branch)
                 continue
 

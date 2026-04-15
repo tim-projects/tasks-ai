@@ -317,6 +317,9 @@ def cmd_merge(src_input, target):
     # 4. Push
     if prompt_yes_no(f"Push {target} to origin?"):
         run(["git", "push", "origin", target])
+        # Sync local branch with remote after push
+        run(["git", "fetch", "origin", target])
+        run(["git", "reset", "--hard", f"origin/{target}"])
 
     # 6. Return
     if src and (FLAGS["yes"] or prompt_yes_no(f"Switch back to {src}?")):
