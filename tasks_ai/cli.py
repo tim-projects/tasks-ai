@@ -516,6 +516,11 @@ class TasksCLI:
 
     def _get_next_id(self):
         counter_file = os.path.join(self.tasks_path, ".task_counter")
+        if not os.path.exists(counter_file):
+            hint = "Run 'tasks init' first."
+            if self.dev:
+                hint = "Dev tasks not initialized. Run 'tasks --dev init' first."
+            self.error("Tasks not initialized.", hint=hint)
         with open(counter_file, "r+") as f:
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
             try:
