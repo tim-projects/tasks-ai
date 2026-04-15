@@ -36,17 +36,37 @@ def get_git_root():
         return os.getcwd()
 
 
+def find_project_root(start_path=None):
+    """Search upward for .tasks directory or .git directory."""
+    if start_path is None:
+        # Start from script location, not cwd - works when installed to /opt
+        start_path = os.path.dirname(os.path.abspath(__file__))
+
+    current = os.path.abspath(start_path)
+    while True:
+        if os.path.isdir(os.path.join(current, ".tasks")) or os.path.isdir(
+            os.path.join(current, ".git")
+        ):
+            return current
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        current = parent
+    return start_path
+
+
 ROOT = get_git_root()
 
 
 def load_config(dev=False):
-    # Prioritize ROOT/.tasks/config.yaml (or /tmp/.tasks/config.yaml if dev), then ROOT/pyproject.toml
+    project_root = find_project_root()
+    # Prioritize project_root/.tasks/config.yaml (or /tmp/.tasks/config.yaml if dev), then project_root/pyproject.toml
     if dev:
         config_path_yaml = "/tmp/.tasks/config.yaml"
     else:
-        config_path_yaml = os.path.join(ROOT, ".tasks", "config.yaml")
+        config_path_yaml = os.path.join(project_root, ".tasks", "config.yaml")
 
-    config_path_toml = os.path.join(ROOT, "pyproject.toml")
+    config_path_toml = os.path.join(project_root, "pyproject.toml")
 
     config = {}
     if os.path.exists(config_path_yaml):
@@ -173,9 +193,10 @@ def run_check(tool_type, fix=False, as_json=False, dev=False):
     cmd = commands[tool].copy()
 
     # Path discovery
+    project_root = find_project_root()
     cmd0 = shutil.which(cmd[0])
     if not cmd0:
-        venv_bin = os.path.join(ROOT, "venv", "bin", cmd[0])
+        venv_bin = os.path.join(project_root, "venv", "bin", cmd[0])
         if os.path.exists(venv_bin):
             cmd0 = venv_bin
 
@@ -206,7 +227,7 @@ def run_check(tool_type, fix=False, as_json=False, dev=False):
     if not as_json:
         print(f"Running {tool} ({tool_type})...")
 
-    result = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
+    result = subprocess.run(cmd, cwd=project_root, capture_output=True, text=True)
 
     if as_json:
         print(

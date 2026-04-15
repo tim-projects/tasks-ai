@@ -78,9 +78,15 @@ def info(msg):
 
 
 def run(cmd, check=True, capture=False, env=None, cwd=None):
+    project_root = find_project_root()
     try:
         return subprocess.run(
-            cmd, check=check, capture_output=capture, text=True, env=env, cwd=cwd
+            cmd,
+            check=check,
+            capture_output=capture,
+            text=True,
+            env=env,
+            cwd=cwd or project_root,
         )
     except subprocess.CalledProcessError as e:
         if check:
@@ -116,13 +122,41 @@ def prompt_yes_no(prompt):
         )
 
 
+def find_project_root(start_path=None):
+    """Search upward for .tasks directory or .git directory."""
+    if start_path is None:
+        start_path = os.path.dirname(os.path.abspath(__file__))
+
+    current = os.path.abspath(start_path)
+    while True:
+        if os.path.isdir(os.path.join(current, ".tasks")) or os.path.isdir(
+            os.path.join(current, ".git")
+        ):
+            return current
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        current = parent
+
+    # Fallback: try current working directory
+    if start_path != os.getcwd():
+        return find_project_root(os.getcwd())
+
+    return start_path
+
+
 class ToolRunner:
     def __init__(self):
         pass
 
     def _get_git_root(self):
+        root = find_project_root()
+        # If script is installed to /opt but project is elsewhere, try git rev-parse
+        if os.path.isdir(os.path.join(root, ".git")):
+            return root
+        # Try to find git root from cwd as fallback
         try:
-            return (
+            git_root = (
                 subprocess.check_output(
                     ["git", "rev-parse", "--show-toplevel"],
                     stderr=subprocess.DEVNULL,
@@ -130,8 +164,11 @@ class ToolRunner:
                 .decode()
                 .strip()
             )
-        except subprocess.CalledProcessError:
-            return os.getcwd()
+            if git_root:
+                return git_root
+        except Exception:
+            pass
+        return root
 
     def run_validation(self, fix=False, dev=False):
         git_root = self._get_git_root()
