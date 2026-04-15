@@ -148,7 +148,7 @@ class ToolRunner:
         if dev:
             cmd.append("--dev")
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
         if result.returncode != 0:
             print(result.stdout)
             print(result.stderr, file=sys.stderr)
