@@ -1,1 +1,0 @@
-- [ ] pyright passes without counting third-party errors
