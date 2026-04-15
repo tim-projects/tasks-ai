@@ -199,6 +199,26 @@ class TasksCLI:
                 hint="Run 'check lint' to see errors. Do not bypass this tool.",
             )
 
+    def _run_tests(self, fail_safe=False):
+        check_path = os.path.join(self.root, "check.py")
+        if not os.path.exists(check_path):
+            return subprocess.CompletedProcess("", 0)
+        result = subprocess.run(
+            [sys.executable, check_path, "test"],
+            cwd=self.root,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode != 0:
+            if fail_safe:
+                return result
+            self.error(
+                "Tests failed. Fix test failures before proceeding.",
+                hint="Run 'check test' to see failures. Do not bypass this tool.",
+            )
+        return result
+
     def _parse_filename(self, name):
         if not name:
             return "task", ""
@@ -1207,10 +1227,23 @@ class TasksCLI:
                     hint="Run 'tasks modify <id> --tests-passed' to mark tests as passed. Do not bypass this tool.",
                 )
             self._run_validation()
+            self._run_tests()
+
+        # Re-validate when moving out of TESTING to any state
+        if current_state == "TESTING" and new_status != "REVIEW":
+            self._run_validation()
+            task = FM.load(filepath_str)
+            task.metadata["Vp"] = True
+            FM.dump(task, filepath_str)
 
         # Auto-validate when moving from PROGRESSING to TESTING
         if current_state == "PROGRESSING" and new_status == "TESTING":
             self._run_validation()
+            self.log("Validation passed. Marking validation_passed...")
+            task = FM.load(filepath_str)
+            task.metadata["Vp"] = True
+            FM.dump(task, filepath_str)
+            new_status = "TESTING"
 
         task = FM.load(filepath_str)
         task.metadata.pop("St", None)
