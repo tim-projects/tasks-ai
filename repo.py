@@ -245,11 +245,20 @@ def cmd_merge(src_input, target):
 
     # 1. Pre-merge checks on src
     if current != src:
-        if prompt_yes_no(f"Switch to {src} for compliance checks?"):
-            run(["git", "checkout", src])
-            current = src
-        else:
-            error(f"Merge cancelled. Must be on {src} to run validation.")
+        # Check for uncommitted changes and auto-commit if needed
+        st = run(["git", "status", "--porcelain"], capture=True).stdout.strip()
+        if st:
+            warn(f"Uncommitted changes on {current}. Auto-committing...")
+            run(["git", "add", "."])
+            run(["git", "commit", "-m", f"WIP: Auto-commit before promote to {src}"])
+
+        checkout_res = run(["git", "checkout", src], check=False, capture=True)
+        if checkout_res.returncode != 0:
+            error(
+                f"Failed to checkout {src}: {checkout_res.stderr}\n"
+                "Cannot promote with uncommitted changes."
+            )
+        current = src
 
     # Check clean
     st = run(["git", "status", "--porcelain"], capture=True).stdout.strip()

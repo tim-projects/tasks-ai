@@ -170,6 +170,14 @@ class TestTasksAI(unittest.TestCase):
                 subprocess.run(
                     ["git", "merge", "staging"], cwd=self.repo_dir, capture_output=True
                 )
+                # Complete checkboxes before LIVE move (write to staging folder)
+                criteria_path = os.path.join(
+                    self.repo_dir, ".tasks", "staging", issue_file, "criteria.md"
+                )
+                with open(criteria_path, "r") as f:
+                    content = f.read()
+                with open(criteria_path, "w") as f:
+                    f.write(content.replace("- [ ]", "- [x]"))
 
             # Pass -y for LIVE since it requires merge confirmation
             move_args = ["move", issue_file, state]
@@ -178,15 +186,6 @@ class TestTasksAI(unittest.TestCase):
             res = self.run_cmd(move_args)
             print(f"DEBUG: Full response for {state}: {res}")
             self.assertTrue(res["success"], f"Failed move to {state}: {res}")
-
-        # Complete checkboxes before archiving
-        criteria_path = os.path.join(
-            self.repo_dir, ".tasks", "live", issue_file, "criteria.md"
-        )
-        with open(criteria_path, "r") as f:
-            content = f.read()
-        with open(criteria_path, "w") as f:
-            f.write(content.replace("- [ ]", "- [x]"))
 
         # Archive (Needs a commit and -y)
         res = self.run_cmd(["move", issue_file, "ARCHIVED", "-y"])
@@ -264,6 +263,14 @@ class TestTasksAI(unittest.TestCase):
                 subprocess.run(
                     ["git", "merge", "staging"], cwd=self.repo_dir, capture_output=True
                 )
+                # Complete checkboxes BEFORE LIVE move (write to staging folder)
+                criteria_path = os.path.join(
+                    self.repo_dir, ".tasks", "staging", file, "criteria.md"
+                )
+                with open(criteria_path, "r") as f:
+                    content = f.read()
+                with open(criteria_path, "w") as f:
+                    f.write(content.replace("- [ ]", "- [x]"))
 
             # Pass -y for LIVE since it requires merge confirmation
             move_args = ["move", file, state]
@@ -271,15 +278,6 @@ class TestTasksAI(unittest.TestCase):
                 move_args.append("-y")
             res = self.run_cmd(move_args)
             self.assertTrue(res["success"], f"Failed move to {state}: {res}")
-
-        # Complete checkboxes
-        criteria_path = os.path.join(
-            self.repo_dir, ".tasks", "live", file, "criteria.md"
-        )
-        with open(criteria_path, "r") as f:
-            content = f.read()
-        with open(criteria_path, "w") as f:
-            f.write(content.replace("- [ ]", "- [x]"))
 
         # Backdate log
         log_path = os.path.join(self.repo_dir, ".tasks", "live", file, "activity.log")
