@@ -3,5 +3,6 @@
   "Ti": "Add gate for moving tasks to TESTING state",
   "Cr": "260417 09:20",
   "Bl": [],
-  "Pr": 1
+  "Pr": 1,
+  "Vp": true
 }
