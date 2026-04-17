@@ -1,1 +1,0 @@
-Modify TasksCLI._move_logic(): add branch validation before state changes. Get current branch via git branch --show-current, compare with task Br. On mismatch, error with checkout hint. Add --force flag to move command. Update help_text.py.

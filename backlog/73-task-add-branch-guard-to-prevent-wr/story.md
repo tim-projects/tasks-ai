@@ -1,1 +1,0 @@
-Prevent accidental git commits on wrong task branches during moves to TESTING/REVIEW/STAGING/LIVE/ARCHIVED. Tool should verify current git HEAD matches task's Br metadata, error if mismatch with hint to git checkout expected branch. Allow override with --force.

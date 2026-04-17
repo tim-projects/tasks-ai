@@ -1,1 +1,0 @@
-Prevent accidental git commits on wrong task branches during moves to TESTING/REVIEW/STAGING/LIVE/ARCHIVED. Tool should verify current git HEAD matches task's Br metadata before allowing move, with clear error hint. --force can override.
