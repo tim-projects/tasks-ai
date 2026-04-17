@@ -1,1 +1,0 @@
-- [ ] Informative message is displayed when prompt is skipped.
