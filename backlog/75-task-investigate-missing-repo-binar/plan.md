@@ -1,0 +1,1 @@
+1. 1. Investigate installation path. 2. Verify if repo tool is present. 3. Fix installation or update path.
