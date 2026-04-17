@@ -6,5 +6,6 @@
   "Pr": 2,
   "Br": "81-task-test-review-gate",
   "Tp": true,
-  "Rc": ""
+  "Rc": "",
+  "Vp": true
 }
