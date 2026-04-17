@@ -83,9 +83,55 @@ class TasksCLI:
                         self.tasks_path = os.path.join(self.root, self.tasks_dir)
         self.logs_path = os.path.join(self.tasks_path, "logs")
         if os.path.exists(self.tasks_path):
+            self._migrate_live_to_done()
             self._auto_archive()
             if command and command != "delete":
                 self._clear_delete_marks()
+
+    def _migrate_live_to_done(self):
+        """Migrate .tasks/live to .tasks/done if it exists."""
+        live_dir = os.path.join(self.tasks_path, "live")
+        done_dir = os.path.join(self.tasks_path, "done")
+
+        if os.path.exists(live_dir):
+            # Check if there are actual tasks (not just .gitkeep)
+            items = [i for i in os.listdir(live_dir) if i != ".gitkeep"]
+            if items:
+                self.log(f"Migrating {len(items)} tasks from LIVE to DONE...")
+                os.makedirs(done_dir, exist_ok=True)
+                for item in items:
+                    src = os.path.join(live_dir, item)
+                    dst = os.path.join(done_dir, item)
+                    if os.path.exists(os.path.join(self.tasks_path, ".git")):
+                        # Use git mv if it's a git repo and tracked
+                        res = self._run_git(["mv", os.path.join("live", item), os.path.join("done", item)], cwd=self.tasks_path)
+                        if res.returncode != 0:
+                            if os.path.exists(dst):
+                                if os.path.isdir(dst): shutil.rmtree(dst)
+                                else: os.remove(dst)
+                            shutil.move(src, dst)
+                    else:
+                        if os.path.exists(dst):
+                            if os.path.isdir(dst): shutil.rmtree(dst)
+                            else: os.remove(dst)
+                        shutil.move(src, dst)
+                
+                # Commit migration if in git
+                if os.path.exists(os.path.join(self.tasks_path, ".git")):
+                    self._run_git(["add", "--all"], cwd=self.tasks_path)
+                    self._run_git(["commit", "-m", "Migrate LIVE tasks to DONE"], cwd=self.tasks_path)
+                self.log("Migration complete.")
+            
+            # Remove live directory if empty or only contains .gitkeep
+            remaining = os.listdir(live_dir)
+            if not remaining or (len(remaining) == 1 and remaining[0] == ".gitkeep"):
+                try:
+                    if os.path.exists(os.path.join(self.tasks_path, ".git")):
+                        self._run_git(["rm", "-rf", "live"], cwd=self.tasks_path)
+                    if os.path.exists(live_dir):
+                        shutil.rmtree(live_dir)
+                except Exception:
+                    pass
 
     def _clear_delete_marks(self):
         updated = False
@@ -384,36 +430,40 @@ class TasksCLI:
         return False
 
     def _auto_archive(self):
-        live_dir = os.path.join(self.tasks_path, STATE_FOLDERS["LIVE"])
-        if not os.path.exists(live_dir):
-            return
-        now = datetime.now()
-        for item in os.listdir(live_dir):
-            if item == ".gitkeep":
+        for state in ["LIVE", "DONE"]:
+            folder = STATE_FOLDERS.get(state)
+            if not folder:
                 continue
-            path = os.path.join(live_dir, item)
-            if os.path.isdir(path):
-                log_path = os.path.join(path, "activity.log")
-                if os.path.exists(log_path):
-                    with open(log_path, "r", encoding="utf-8") as f:
-                        lines = f.readlines()
-                    live_date = None
-                    for line in reversed(lines):
-                        if "->LIVE" in line:
-                            match = re.search(r"- (\d{6} \d{2}:\d{2}):", line)
-                            if match:
-                                live_date = datetime.strptime(
-                                    match.group(1), "%y%m%d %H:%M"
+            target_dir = os.path.join(self.tasks_path, folder)
+            if not os.path.exists(target_dir):
+                continue
+            now = datetime.now()
+            for item in os.listdir(target_dir):
+                if item == ".gitkeep":
+                    continue
+                path = os.path.join(target_dir, item)
+                if os.path.isdir(path):
+                    log_path = os.path.join(path, "activity.log")
+                    if os.path.exists(log_path):
+                        with open(log_path, "r", encoding="utf-8") as f:
+                            lines = f.readlines()
+                        live_date = None
+                        for line in reversed(lines):
+                            if "->LIVE" in line or "->DONE" in line:
+                                match = re.search(r"- (\d{6} \d{2}:\d{2}):", line)
+                                if match:
+                                    live_date = datetime.strptime(
+                                        match.group(1), "%y%m%d %H:%M"
+                                    )
+                                    break
+                        if live_date and (now - live_date) > timedelta(days=7):
+                            if self._has_incomplete_checkboxes(path):
+                                self.log(
+                                    f"Skipping archive for {item}: incomplete checkboxes"
                                 )
-                                break
-                    if live_date and (now - live_date) > timedelta(days=7):
-                        if self._has_incomplete_checkboxes(path):
-                            self.log(
-                                f"Skipping archive for {item}: incomplete checkboxes"
-                            )
-                            continue
-                        self.log(f"Auto-archiving: {item}")
-                        self._move_logic(item, "ARCHIVED", force=True, yes=False)
+                                continue
+                            self.log(f"Auto-archiving: {item}")
+                            self._move_logic(item, "ARCHIVED", force=True, yes=False)
 
     def init(self):
         if self.dev:
@@ -1476,7 +1526,7 @@ class TasksCLI:
 
         if not force:
             has_origin = self._run_git(["remote", "get-url", "origin"]).returncode == 0
-            if new_status in ("REVIEW", "STAGING", "LIVE", "ARCHIVED"):
+            if new_status in ("REVIEW", "STAGING", "LIVE", "DONE", "ARCHIVED"):
                 if has_origin:
                     if not self._run_git(
                         ["ls-remote", "--heads", "origin", branch]
@@ -1571,7 +1621,7 @@ class TasksCLI:
                         f"Branch '{branch}' not merged to testing. Merge to testing first."
                     )
 
-            if new_status in ("LIVE", "ARCHIVED") and not force:
+            if new_status in ("LIVE", "DONE", "ARCHIVED") and not force:
                 main_sha = (
                     self._run_git(["rev-parse", "main"]).stdout.strip()
                     if self._run_git(["rev-parse", "--verify", "main"]).returncode == 0
@@ -1606,9 +1656,9 @@ class TasksCLI:
                             f"Branch '{branch}' not merged to main. Merge to main first. Alternatively, move to REJECTED. Do not bypass this tool.",
                         )
                 if yes:
-                    # Only delete local branch if task was in LIVE state (completed full pipeline)
-                    # Keep branch for potential restoration if rejected or archived before LIVE
-                    if current_state == "LIVE":
+                    # Only delete local branch if task was in LIVE or DONE state (completed full pipeline)
+                    # Keep branch for potential restoration if rejected or archived before LIVE/DONE
+                    if current_state in ("LIVE", "DONE"):
                         self._run_git(["push", "origin", branch], cwd=self.root)
                         self._run_git(["branch", "-d", branch], cwd=self.root)
                 else:
@@ -1632,9 +1682,9 @@ class TasksCLI:
                 "Cannot archive task: contains unfinished checkboxes (- [ ])",
                 hint="Edit .tasks/staging/<task>/criteria.md and change '- [ ]' to '- [x]' for completed items, or use: sed -i 's/- \\[ \\]/- [x]/g' .tasks/staging/<task>/criteria.md",
             )
-        if new_status == "LIVE" and self._has_incomplete_checkboxes(filepath):
+        if new_status in ("LIVE", "DONE") and self._has_incomplete_checkboxes(filepath):
             self.error(
-                "Cannot move to LIVE: contains unfinished checkboxes (- [ ])",
+                f"Cannot move to {new_status}: contains unfinished checkboxes (- [ ])",
                 hint="Edit .tasks/staging/<task>/criteria.md and change '- [ ]' to '- [x]' for completed items, or use: sed -i 's/- \\[ \\]/- [x]/g' .tasks/staging/<task>/criteria.md",
             )
 
@@ -2228,9 +2278,9 @@ class TasksCLI:
                     )
                     continue
 
-            # Respect workflow gates: only clean up branches for LIVE or REJECTED tasks
+            # Respect workflow gates: only clean up branches for LIVE, DONE, or REJECTED tasks
             # (ARCHIVED tasks should also be cleaned up - they completed the pipeline)
-            if state not in ("LIVE", "REJECTED", "ARCHIVED"):
+            if state not in ("LIVE", "DONE", "REJECTED", "ARCHIVED"):
                 pending_archive.append(branch)
                 continue
 
@@ -2248,7 +2298,7 @@ class TasksCLI:
 
             cleaned.append(branch)
 
-            if state == "LIVE":
+            if state in ("LIVE", "DONE"):
                 if not dry_run:
                     self._move_logic(branch, "ARCHIVED", force=True, yes=yes)
                     archived.append(branch)
