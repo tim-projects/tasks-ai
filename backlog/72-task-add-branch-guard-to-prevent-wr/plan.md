@@ -1,0 +1,1 @@
+1. 1. Implement guard in cli.py 2. Add force handling 3. Update help_text.py 4. Add tests to test_robustness.py 5. Run all validation
