@@ -443,30 +443,33 @@ def cmd_promote(src_input, original_task_id=None):
                 if status != "REVIEW":
                     # If it's in TESTING, we can auto-move to REVIEW to generate diff
                     if status == "TESTING":
-                        info(f"Task {task_id} is in TESTING. Moving to REVIEW to generate diff...")
+                        info(
+                            f"Task {task_id} is in TESTING. Moving to REVIEW to generate diff..."
+                        )
                         try:
                             cli.move(task_id, "REVIEW")
                             log(f"✅ Task {task_id} moved to REVIEW.")
                         except SystemExit:
                             pass
-                        
+
                         error(
                             f"Task {task_id} has been moved to REVIEW.",
-                            hint=f"Please review the diff at .tasks/review/{task_id}-...patch and run 'tasks modify {task_id} --regression-check' before promoting to staging."
+                            hint=f"Please review the diff at .tasks/review/{task_id}-...patch and run 'tasks modify {task_id} --regression-check' before promoting to staging.",
                         )
                     else:
                         error(
                             f"Task {task_id} is in '{status}' state, not 'REVIEW'.",
-                            hint=f"Move task to REVIEW first: 'tasks move {task_id} REVIEW'"
+                            hint=f"Move task to REVIEW first: 'tasks move {task_id} REVIEW'",
                         )
-                
+
                 # Verify Regression Check (Rc)
                 from tasks_ai.file_manager import FM
+
                 task = FM.load(path)
                 if not task.metadata.get("Rc"):
                     error(
                         f"Task {task_id} has not passed regression check (Rc flag not set).",
-                        hint=f"Review the diff at .tasks/review/{task_id}-...patch. If clean, run 'tasks modify {task_id} --regression-check' to confirm."
+                        hint=f"Review the diff at .tasks/review/{task_id}-...patch. If clean, run 'tasks modify {task_id} --regression-check' to confirm.",
                     )
 
     cmd_merge(src, target)
