@@ -1,0 +1,1 @@
+1. 1. Create task\n2. Move to PROGRESSING\n3. Promote to testing\n4. Trigger gate

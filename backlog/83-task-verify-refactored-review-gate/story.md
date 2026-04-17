@@ -1,0 +1,1 @@
+As a developer I want to ensure the review gate triggers at the staging transition.
