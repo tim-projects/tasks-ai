@@ -536,6 +536,10 @@ def main():
     elif cmd == "sync":
         cmd_merge("testing", "staging")
         cmd_merge("staging", "main")
+    elif cmd == "demote":
+        if len(args) < 3:
+            error("Usage: repo demote <task_id> <target_state>")
+        cmd_demote(args[1], args[2])
     elif cmd == "status":
         cmd_status()
     elif cmd == "commit":
@@ -570,3 +574,51 @@ def main():
 
 if __name__ == "__main__":
     main()
+def cmd_demote(task_id_input, target_state):
+    """
+    Demote a task from current pipeline stage to target stage/branch.
+    Pushes code changes back from target branch to task feature branch.
+    """
+    from tasks_ai.file_manager import FM
+
+    task_id = task_id_input.split("-")[0] if task_id_input.split("-")[0].isdigit() else task_id_input
+    if not TasksCLI:
+        error("TasksCLI not available.")
+    
+    cli = TasksCLI(quiet=True, dev=FLAGS["dev"])
+    path, _ = cli.find_task(task_id)
+    if not path:
+        error(f"Task {task_id} not found.")
+    
+    task = FM.load(path)
+    branch = task.metadata.get("Br")
+    if not branch:
+        error(f"Task {task_id} has no associated branch.")
+
+    info(f"Demoting {task_id} ({branch}) to {target_state}...")
+
+    # Sync changes back
+    branches_to_sync = []
+    if target_state == "PROGRESSING":
+        branches_to_sync = ["staging", "testing"]
+    elif target_state == "TESTING":
+        branches_to_sync = ["staging"]
+    
+    for b in branches_to_sync:
+        if branch_exists(b):
+            run(["git", "checkout", branch])
+            log(f"Merging {b} back into {branch}...")
+            merge_res = run(["git", "merge", b, "-m", f"Sync: {b} -> {branch} (demotion)"], check=False)
+            if merge_res.returncode != 0:
+                warn(f"Merge conflict syncing {b} back to {branch}. Please resolve manually.")
+    
+    # Move task status
+    cli.move(task_id, target_state)
+
+    # Reset Rc flag
+    from tasks_ai.file_manager import FM
+    task = FM.load(path)
+    task.metadata["Rc"] = ""
+    FM.dump(task, path)
+    
+    log(f"✅ Successfully demoted {task_id} to {target_state}, synced branches, and reset regression flag.")
