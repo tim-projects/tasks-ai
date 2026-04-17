@@ -1,0 +1,10 @@
+{
+  "Id": 71,
+  "Ti": "Auto-generate diff and add regression check gate on REVIEW",
+  "Cr": "170417 10:18",
+  "Bl": [],
+  "Pr": 2,
+  "Tp": "task",
+  "Br": "71-task-auto-diff-and-regression-on-review",
+  "Vp": true
+}
