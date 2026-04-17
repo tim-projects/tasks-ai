@@ -1,0 +1,1 @@
+During promotion, the tool asked to push to origin twice for the same branch.
