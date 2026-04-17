@@ -77,10 +77,37 @@ def info(msg):
         print(f"{CYAN}[repo]{NC} {msg}")
 
 
+def find_project_root(start_path=None):
+    """Search upward for .tasks directory or .git directory."""
+    if start_path is None:
+        # Start from cwd first, not script dir, to respect test isolation
+        start_path = os.getcwd()
+
+    current = os.path.abspath(start_path)
+    while True:
+        if os.path.isdir(os.path.join(current, ".tasks")) or os.path.isdir(
+            os.path.join(current, ".git")
+        ):
+            return current
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        current = parent
+
+    # Fallback to script location
+    return Path(__file__).parent.resolve()
+
+
 def run(cmd, check=True, capture=False, env=None, cwd=None):
+    project_root = find_project_root()
     try:
         return subprocess.run(
-            cmd, check=check, capture_output=capture, text=True, env=env, cwd=cwd
+            cmd,
+            check=check,
+            capture_output=capture,
+            text=True,
+            env=env,
+            cwd=cwd or project_root,
         )
     except subprocess.CalledProcessError as e:
         if check:
@@ -120,21 +147,8 @@ class ToolRunner:
     def __init__(self):
         pass
 
-    def _get_git_root(self):
-        try:
-            return (
-                subprocess.check_output(
-                    ["git", "rev-parse", "--show-toplevel"],
-                    stderr=subprocess.DEVNULL,
-                )
-                .decode()
-                .strip()
-            )
-        except subprocess.CalledProcessError:
-            return os.getcwd()
-
     def run_validation(self, fix=False, dev=False):
-        git_root = self._get_git_root()
+        git_root = find_project_root()
         check_py = os.path.join(git_root, "check.py")
         check_cmd = shutil.which("check")
         if not os.path.exists(check_py) and not check_cmd:
@@ -167,7 +181,9 @@ class ToolRunner:
             cmd.append("--dev")
 
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=600, cwd=git_root
+            )
         except subprocess.TimeoutExpired:
             error(
                 "Validation timed out after 10 minutes.\n"
