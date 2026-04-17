@@ -381,6 +381,8 @@ def cmd_merge(src_input, target):
                     "Promotion halted. Please run your user tests manually, then re-run 'repo promote <task>' to continue."
                 )
                 sys.exit(0)
+        else:
+            info("User test prompt skipped per config (repo.skip_user_test_prompt)")
 
     # 2. Perform Merge
     log(f"Merging {src} into {target}...")
