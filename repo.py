@@ -370,7 +370,9 @@ def cmd_merge(src_input, target):
     if not FLAGS["yes"]:
         config = load_config(dev=FLAGS["dev"])
         if not config.get("repo.skip_user_test_prompt"):
-            info("Compliance passed. Have you run any environment-specific user tests? (y/n)")
+            info(
+                "Compliance passed. Have you run any environment-specific user tests? (y/n)"
+            )
             print(
                 f"{CYAN}[repo]{NC} HINT: You can disable this prompt by running: tasks config set repo.skip_user_test_prompt true"
             )
@@ -379,7 +381,6 @@ def cmd_merge(src_input, target):
                     "Promotion halted. Please run your user tests manually, then re-run 'repo promote <task>' to continue."
                 )
                 sys.exit(0)
-
 
     # 2. Perform Merge
     log(f"Merging {src} into {target}...")
