@@ -259,7 +259,7 @@ def resolve_branch(name):
 
     # Check if task ID
     if name.isdigit() and TasksCLI:
-        cli = TasksCLI(quiet=True, dev=FLAGS["dev"])
+        cli = TasksCLI(quiet=True, dev=FLAGS["dev"]) if TasksCLI is not None else None
         path, _ = cli.find_task(name)
         if path:
             branch_name = os.path.basename(path)
@@ -436,7 +436,7 @@ def cmd_promote(src_input, original_task_id=None):
 
     # Task State and Review Gate Enforcement
     if task_id and TasksCLI:
-        cli = TasksCLI(quiet=True, dev=FLAGS["dev"])
+        cli = TasksCLI(quiet=True, dev=FLAGS["dev"]) if TasksCLI is not None else None
         path, status = cli.find_task(task_id)
         if path:
             # If target is staging or main, we require Rc flag to be set
@@ -469,7 +469,7 @@ def cmd_promote(src_input, original_task_id=None):
 
     # Post-merge Task State Enforcement
     if task_id and TasksCLI:
-        cli = TasksCLI(quiet=True, dev=FLAGS["dev"])
+        cli = TasksCLI(quiet=True, dev=FLAGS["dev"]) if TasksCLI is not None else None
         if target == "testing":
             _, status = cli.find_task(task_id)
             if status == "PROGRESSING":
@@ -594,7 +594,7 @@ def cmd_demote(task_id_input, target_state):
     if not TasksCLI:
         error("TasksCLI not available.")
 
-    cli = TasksCLI(quiet=True, dev=FLAGS["dev"])
+    cli = TasksCLI(quiet=True, dev=FLAGS["dev"]) if TasksCLI is not None else None
     path, _ = cli.find_task(task_id)
     if not path:
         error(f"Task {task_id} not found.")
