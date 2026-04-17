@@ -1,0 +1,1 @@
+1. 1. Create task\n2. Move to REVIEW\n3. Promote without Rc
