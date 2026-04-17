@@ -327,6 +327,16 @@ def cmd_merge(src_input, target):
             "the workflow requires all validation to pass."
         )
 
+    if not FLAGS["yes"]:
+        info(
+            "Compliance passed. Have you run any environment-specific user tests? (y/n)"
+        )
+        if not prompt_yes_no("Proceed with promotion?"):
+            info(
+                "Promotion halted. Please run your user tests manually, then re-run 'repo promote <task>' to continue."
+            )
+            sys.exit(0)
+
     # 2. Perform Merge
     log(f"Merging {src} into {target}...")
     run(["git", "checkout", target])

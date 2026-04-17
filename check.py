@@ -305,7 +305,35 @@ def run_check(tool_type, fix=False, as_json=False, dev=False):
     return result.returncode
 
 
+def get_current_hash():
+    try:
+        return (
+            subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
+            )
+            .decode()
+            .strip()
+        )
+    except Exception:
+        return None
+
+
+def get_last_hash_path():
+    return os.path.join(find_project_root(), ".tasks", ".last_validation_hash")
+
+
 def run_all(fix=False, as_json=False, dev=False):
+    current_hash = get_current_hash()
+    hash_path = get_last_hash_path()
+
+    if not fix and current_hash and os.path.exists(hash_path):
+        with open(hash_path, "r") as f:
+            last_hash = f.read().strip()
+        if last_hash == current_hash:
+            if not as_json:
+                print("✅ Codebase unchanged, skipping validation.")
+            return 0
+
     results = {}
     total_code = 0
     for check in ["lint", "test", "typecheck", "format"]:
@@ -313,6 +341,10 @@ def run_all(fix=False, as_json=False, dev=False):
         results[check] = code
         if code != 0:
             total_code = 1
+
+    if total_code == 0 and current_hash:
+        with open(hash_path, "w") as f:
+            f.write(current_hash)
 
     if not as_json:
         print("\n" + "=" * 40)
