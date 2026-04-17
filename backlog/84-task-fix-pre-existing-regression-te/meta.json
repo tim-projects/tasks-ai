@@ -2,7 +2,9 @@
   "Id": 84,
   "Ti": "Fix pre-existing regression test failures",
   "Cr": "260418 00:43",
-  "Bl": [],
+  "Bl": [
+    "80-task-fix-promote-tool-workflow-gate"
+  ],
   "Pr": 2,
   "Br": "84-task-fix-pre-existing-regression-te"
 }
