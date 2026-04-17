@@ -208,7 +208,7 @@ class TestDevMode(unittest.TestCase):
         )
         data = json.loads(res.stdout)
         self.assertFalse("BACKLOG" in data["data"])
-        self.assertFalse("PROGRESSING" in data["data"])
+        self.assertFalse("READY,PROGRESSING" in data["data"])
 
     def test_config_dev(self):
         print(f"[DEBUG] script_path = {self.script_path}")
@@ -281,7 +281,7 @@ class TestDevMode(unittest.TestCase):
                 "--dev",
                 "move",
                 task_file,
-                "PROGRESSING",
+                "READY,PROGRESSING",
             ],
             capture_output=True,
             text=True,

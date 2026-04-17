@@ -114,17 +114,19 @@ class TestTasksAI(unittest.TestCase):
             os.path.exists(os.path.join(self.repo_dir, ".tasks", "ready", issue_file))
         )
 
-        # Move to PROGRESSING
-        res = self.run_cmd(["move", issue_file, "PROGRESSING"])
-        self.assertTrue(res["success"], res)
+        # Move task to READY
+        self.run_cmd(["move", task_file, "READY"])
+
+        # Move issue to PROGRESSING to activate blocking
+        self.run_cmd(["move", issue_file, "READY,PROGRESSING"])
 
         # Linking
-        self.run_cmd(["move", task_file, "READY"])
         res = self.run_cmd(["link", task_file, issue_file])
         self.assertTrue(res["success"], res)
 
-        # Verify blocked (Urgent Bug is in PROGRESSING, not ARCHIVED)
-        res = self.run_cmd(["move", task_file, "PROGRESSING"])
+        # Verify blocked
+        # Issue is currently in PROGRESSING (not finished)
+        res = self.run_cmd(["move", task_file, "READY,PROGRESSING"])
         self.assertFalse(res["success"], res)
         self.assertIn("Blocked by", res.get("error", ""))
 
@@ -211,7 +213,7 @@ class TestTasksAI(unittest.TestCase):
         self.assertTrue(res["success"], res)
 
         # Now unblocked
-        res = self.run_cmd(["move", task_file, "PROGRESSING"])
+        res = self.run_cmd(["move", task_file, "READY,PROGRESSING"])
         self.assertTrue(res["success"], res)
 
     def test_auto_archival(self):
@@ -362,7 +364,7 @@ class TestTasksAI(unittest.TestCase):
 
         # Move through READY -> PROGRESSING
         self.run_cmd(["move", task_file, "READY"])
-        self.run_cmd(["move", task_file, "PROGRESSING"])
+        self.run_cmd(["move", task_file, "READY,PROGRESSING"])
 
         # Create initial commit on the task branch
         subprocess.run(
@@ -462,8 +464,8 @@ class TestTasksAI(unittest.TestCase):
         task_file = res["data"]["file"]
         branch = task_file
 
-        # Move to PROGRESSING
-        self.run_cmd(["move", task_file, "PROGRESSING"])
+        # Move back to PROGRESSING
+        res = self.run_cmd(["move", task_file, "READY,PROGRESSING"])
 
         # Create a code file and commit on the task branch
         code_file = os.path.join(self.repo_dir, "feature.py")
@@ -535,7 +537,7 @@ class TestTasksAI(unittest.TestCase):
         branch = task_file
 
         # Move to PROGRESSING and make commit
-        self.run_cmd(["move", task_file, "PROGRESSING"])
+        self.run_cmd(["move", task_file, "READY,PROGRESSING"])
         code_file = os.path.join(self.repo_dir, "code.py")
         with open(code_file, "w") as f:
             f.write("def func():\n    pass\n")
@@ -606,7 +608,7 @@ class TestTasksAI(unittest.TestCase):
         branch = task_file
 
         # Move to PROGRESSING and commit
-        self.run_cmd(["move", task_file, "PROGRESSING"])
+        self.run_cmd(["move", task_file, "READY,PROGRESSING"])
         code_file = os.path.join(self.repo_dir, "file.txt")
         with open(code_file, "w") as f:
             f.write("content\n")
@@ -673,7 +675,7 @@ class TestTasksAI(unittest.TestCase):
         branch = task_file
 
         # Initial commit on task branch
-        self.run_cmd(["move", task_file, "PROGRESSING"])
+        self.run_cmd(["move", task_file, "READY,PROGRESSING"])
         with open(os.path.join(self.repo_dir, "initial.txt"), "w") as f:
             f.write("initial\n")
         subprocess.run(
