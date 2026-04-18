@@ -1,0 +1,1 @@
+Update all text outputs including: CLI help messages, error messages, log messages, tool outputs, agent guidance text, README and documentation text, and any user-facing strings to match the hammer theme with dominant/pounding language.

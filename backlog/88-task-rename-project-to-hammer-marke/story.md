@@ -1,0 +1,1 @@
+Rename the tasks-ai project to 'hammer' as a marketing effort to increase repo popularity. The theme is that hammer is a DOMINANT character who POUNDS the LLM into submission using the tools system of quality gates and task management. This won't affect code functionality but will update all text outputs to match the new theme.

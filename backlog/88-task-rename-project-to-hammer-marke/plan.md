@@ -1,0 +1,1 @@
+1. 1. Update CLI help messages and tool descriptions\n2. Rewrite error messages with hammer theme\n3. Update log messages to use pounding/dominant language\n4. Brand tool outputs as 'hammer'\n5. Rewrite agent guidance with hammer persona\n6. Update README with hammer branding\n7. Test all text outputs\n8. Update any remaining user-facing strings
