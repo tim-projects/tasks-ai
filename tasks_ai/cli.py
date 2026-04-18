@@ -1703,7 +1703,11 @@ class TasksCLI:
             )
 
         # Regression check gate: REVIEW/TESTING -> STAGING/DONE/ARCHIVED requires Rc to be set
-        if (current_state in ["REVIEW", "TESTING"] and new_status in ["STAGING", "DONE", "ARCHIVED"]):
+        if current_state in ["REVIEW", "TESTING"] and new_status in [
+            "STAGING",
+            "DONE",
+            "ARCHIVED",
+        ]:
             task = FM.load(filepath_str)
             if not task.metadata.get("Rc"):
                 self.error(
