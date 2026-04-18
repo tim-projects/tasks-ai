@@ -1,0 +1,1 @@
+As a developer, I want the test environment to automatically include all required validation tools so that pipeline compliance checks pass in isolated test repositories.
