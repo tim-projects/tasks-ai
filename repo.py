@@ -12,7 +12,7 @@ Commands:
   branch list                - List all branches
   branch create <name>       - Create and switch to new branch
   branch delete <name>       - Delete local branch
-  push                       - Push current branch to origin
+  push                       - Push current branch to remote
   commit <message>           - Add all changes and commit with message (runs compliance)
   cleanup                    - Run tasks cleanup
 
@@ -113,6 +113,29 @@ def get_current_branch():
     ).stdout.strip()
 
 
+def get_remote():
+    """Identify the primary git remote name (prefers 'origin', then any available)."""
+    # Check if 'origin' exists
+    try:
+        run(["git", "remote", "get-url", "origin"], capture=True)
+        return "origin"
+    except Exception:
+        pass
+
+    # Fallback to the first remote listed
+    try:
+        res = run(["git", "remote"], capture=True)
+        if res.stdout.strip():
+            remotes = res.stdout.strip().split("\n")
+            if "github" in remotes:
+                return "github"
+            return remotes[0]
+    except Exception:
+        pass
+
+    return "origin"  # Final fallback
+
+
 def prompt_yes_no(prompt):
     if FLAGS["yes"]:
         return True
@@ -196,10 +219,11 @@ def cmd_merge(src_input, target):
 
     log(f"⚒️ HAMMER MERGE {src} into {target}... 🔨")
     run(["git", "checkout", target])
-    run(["git", "pull", "origin", target], check=False)
+    remote = get_remote()
+    run(["git", "pull", remote, target], check=False)
     run(["git", "merge", src, "-m", f"merge: {src} into {target}"])
     if FLAGS["yes"] or prompt_yes_no(f"Push {target}?"):
-        run(["git", "push", "origin", target])
+        run(["git", "push", remote, target])
     log(f"✅ Successfully merged {src.upper()} → {target.upper()}")
 
 
@@ -215,7 +239,8 @@ def cmd_commit(message):
         run(["git", "commit", "-m", message])
         info(f"Committed on {current.upper()}")
         if FLAGS["yes"] or prompt_yes_no(f"Push {current}?"):
-            run(["git", "push", "origin", current])
+            remote = get_remote()
+            run(["git", "push", remote, current])
         log("✅ Commit successful")
     else:
         warn("No changes to commit")

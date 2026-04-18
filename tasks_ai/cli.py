@@ -234,6 +234,23 @@ class TasksCLI:
 
         return result
 
+    def _get_remote(self, cwd=None):
+        """Identify the primary git remote name (prefers 'origin', then any available)."""
+        # Check if 'origin' exists
+        res = self._run_git(["remote", "get-url", "origin"], cwd=cwd)
+        if res.returncode == 0:
+            return "origin"
+
+        # Fallback to the first remote listed
+        res = self._run_git(["remote"], cwd=cwd)
+        if res.returncode == 0 and res.stdout.strip():
+            remotes = res.stdout.strip().split("\n")
+            if "github" in remotes:
+                return "github"
+            return remotes[0]
+
+        return "origin"  # Final fallback if no remotes found
+
     def _generate_review_diff(self, task_path, branch):
         """Generate a unified diff patch for the task branch against main including unstaged changes."""
         review_dir = os.path.join(self.tasks_path, STATE_FOLDERS["REVIEW"])
@@ -591,14 +608,15 @@ class TasksCLI:
         current = self._run_git(
             ["rev-parse", "--abbrev-ref", "HEAD"], cwd=self.tasks_path
         ).stdout.strip()
+        remote = self._get_remote(cwd=self.tasks_path)
         push_result = self._run_git(
-            ["push", "-u", "origin", f"{current}:refs/heads/{branch}"],
+            ["push", "-u", remote, f"{current}:refs/heads/{branch}"],
             cwd=self.tasks_path,
         )
         if push_result.returncode != 0:
             self.error(f"❌ PUSH FAIL! {push_result.stderr}! FIX NOW! 🔨")
-        self.log(f"Pushed {current} to origin/{branch}")
-        self.finish({"branch": branch, "remote": "origin", "from_branch": current})
+        self.log(f"Pushed {current} to {remote}/{branch}")
+        self.finish({"branch": branch, "remote": remote, "from_branch": current})
 
     def _append_log(self, task_path, entry):
         if not task_path:
@@ -943,7 +961,8 @@ class TasksCLI:
                 f"Modified: [{task.metadata.get('Id', '')}] {tt} | {task.metadata.get('Ti', '')}"
             )
             tt, branch = self._parse_filename(os.path.basename(filepath))  # type: ignore[arg-type]
-            if not self._run_git(["ls-remote", "--heads", "origin", branch]).stdout:
+            remote = self._get_remote()
+            if not self._run_git(["ls-remote", "--heads", remote, branch]).stdout:
                 self._run_git(["checkout", "-b", branch], cwd=self.root)
             if not task.parts.get("story"):
                 self.log("Tip: Consider adding --story to document the user context.")
@@ -1259,20 +1278,20 @@ class TasksCLI:
                     _, branch = self._parse_filename(fname)
                     branch_exists = self._run_git(["rev-parse", branch]).returncode == 0
                     if not branch_exists:
+                        remote = self._get_remote()
                         has_origin = (
-                            self._run_git(["remote", "get-url", "origin"]).returncode
-                            == 0
+                            self._run_git(["remote", "get-url", remote]).returncode == 0
                         )
                         if has_origin:
                             remote_check = self._run_git(
-                                ["ls-remote", "--heads", "origin", branch]
+                                ["ls-remote", "--heads", remote, branch]
                             )
                             if remote_check.stdout.strip():
                                 self.log(
                                     f"Branch '{branch}' not found locally. Restoring from remote..."
                                 )
                                 self._run_git(
-                                    ["checkout", "-b", branch, f"origin/{branch}"],
+                                    ["checkout", "-b", branch, f"{remote}/{branch}"],
                                     cwd=self.root,
                                 )
                                 self.log(
@@ -1522,16 +1541,17 @@ class TasksCLI:
 
         # Auto-restore branch from remote if moving to PROGRESSING and branch is missing
         if new_status == "PROGRESSING" and not branch_sha:
-            has_origin = self._run_git(["remote", "get-url", "origin"]).returncode == 0
+            remote = self._get_remote()
+            has_origin = self._run_git(["remote", "get-url", remote]).returncode == 0
             if has_origin:
                 # Check if branch exists on remote
-                remote_check = self._run_git(["ls-remote", "--heads", "origin", branch])
+                remote_check = self._run_git(["ls-remote", "--heads", remote, branch])
                 if remote_check.stdout.strip():
                     self.log(
                         f"Branch '{branch}' not found locally. Restoring from remote..."
                     )
                     self._run_git(
-                        ["checkout", "-b", branch, f"origin/{branch}"], cwd=self.root
+                        ["checkout", "-b", branch, f"{remote}/{branch}"], cwd=self.root
                     )
                     branch_sha = self._run_git(["rev-parse", branch]).stdout.strip()
                     self.log(
@@ -1539,11 +1559,12 @@ class TasksCLI:
                     )
 
         if not force:
-            has_origin = self._run_git(["remote", "get-url", "origin"]).returncode == 0
+            remote = self._get_remote()
+            has_origin = self._run_git(["remote", "get-url", remote]).returncode == 0
             if new_status in ("REVIEW", "STAGING", "DONE", "ARCHIVED"):
                 if has_origin:
                     if not self._run_git(
-                        ["ls-remote", "--heads", "origin", branch]
+                        ["ls-remote", "--heads", remote, branch]
                     ).stdout:
                         self.error(
                             f"❌ BRANCH '{branch}' NOT PUSHED TO REMOTE! PUSH AND TRY AGAIN! HAMMER NO BYPASS TOOL! 🔨",
@@ -1648,12 +1669,13 @@ class TasksCLI:
                 if not branch_commit and branch_exists:
                     branch_commit = self._run_git(["rev-parse", branch]).stdout.strip()
                 if not branch_commit:
+                    remote = self._get_remote()
                     if self._run_git(
-                        ["ls-remote", "--heads", "origin", branch]
+                        ["ls-remote", "--heads", remote, branch]
                     ).stdout.strip():
-                        self._run_git(["fetch", "origin", branch], cwd=self.root)
+                        self._run_git(["fetch", remote, branch], cwd=self.root)
                         branch_commit = self._run_git(
-                            ["rev-parse", f"origin/{branch}"]
+                            ["rev-parse", f"{remote}/{branch}"]
                         ).stdout.strip()
                 if not branch_commit:
                     branch_commit = main_sha
@@ -1673,7 +1695,8 @@ class TasksCLI:
                     # Only delete local branch if task was in DONE state (completed full pipeline)
                     # Keep branch for potential restoration if rejected or archived before DONE
                     if current_state == "DONE":
-                        self._run_git(["push", "origin", branch], cwd=self.root)
+                        remote = self._get_remote()
+                        self._run_git(["push", remote, branch], cwd=self.root)
                         self._run_git(["branch", "-d", branch], cwd=self.root)
                 else:
                     if not self.as_json:
@@ -2221,15 +2244,16 @@ class TasksCLI:
         title = task.metadata.get("Ti", "")
         branch = task_id
 
-        # Check if remote 'origin' exists
-        has_origin = self._run_git(["remote", "get-url", "origin"]).returncode == 0
+        # Check if remote exists
+        remote = self._get_remote()
+        has_origin = self._run_git(["remote", "get-url", remote]).returncode == 0
         if has_origin:
-            if self._run_git(["ls-remote", "--heads", "origin", branch]).stdout:
+            if self._run_git(["ls-remote", "--heads", remote, branch]).stdout:
                 return
             if not self.as_json:
                 print(f"Branch: {branch} (no longer exists in remote)")
         else:
-            # If no origin, check if local branch exists
+            # If no remote, check if local branch exists
             has_local = self._run_git(["rev-parse", "--verify", branch]).returncode == 0
             if has_local:
                 return
@@ -2304,7 +2328,8 @@ class TasksCLI:
         cleaned = []
         archived = []
         pending_archive = []
-        has_origin = self._run_git(["remote", "get-url", "origin"]).returncode == 0
+        remote = self._get_remote()
+        has_origin = self._run_git(["remote", "get-url", remote]).returncode == 0
 
         for branch in branches.splitlines():
             branch = branch.strip()
@@ -2336,7 +2361,7 @@ class TasksCLI:
                     )
                     if not dry_run:
                         if has_origin:
-                            self._run_git(["push", "origin", branch], cwd=self.root)
+                            self._run_git(["push", remote, branch], cwd=self.root)
                         self._run_git(["branch", "-D", branch], cwd=self.root)
                     cleaned.append(branch)
                     continue
@@ -2354,14 +2379,14 @@ class TasksCLI:
 
             # Check branch was pushed to remote before cleaning up
             if has_origin:
-                remote_check = self._run_git(["ls-remote", "--heads", "origin", branch])
+                remote_check = self._run_git(["ls-remote", "--heads", remote, branch])
                 if not remote_check.stdout.strip():
                     pending_archive.append(f"{branch} (not pushed to remote)")
                     continue
 
             if not dry_run:
                 if has_origin:
-                    self._run_git(["push", "origin", branch], cwd=self.root)
+                    self._run_git(["push", remote, branch], cwd=self.root)
                 self._run_git(["branch", "-D", branch], cwd=self.root)
 
             cleaned.append(branch)
