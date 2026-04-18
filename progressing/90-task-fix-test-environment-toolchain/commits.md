@@ -1,5 +1,3 @@
-1294115 Task 90: Finalizing tool auto-detection and test setup
-505fa67 Final cleanup of task implementation
 ab77310 Fix: Recursive pipeline branch creation and bypass validation in test environment
 05c388a Fix: Recursive pipeline branch creation in repo.py
 fb56a8d Fix: Replace hardcoded 'origin' with dynamic remote detection
