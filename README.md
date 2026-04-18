@@ -1,6 +1,5 @@
 <img src="hammer-icon.webp" width="200"/>
 
-```markdown
 # **HAMMER IS BOSS.** LLM SUBMIT. POUND weak code through quality gates to LIVE BLADE! **CODE QUALITY 10X!**
 
 **Your lite/small local or cloud LLM writes code.** Without HAMMER = toy prototypes that break in production.  
