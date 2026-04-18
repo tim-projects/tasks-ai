@@ -198,7 +198,9 @@ def cmd_merge(src_input, target):
     run(["git", "checkout", target])
     run(["git", "pull", "origin", target], check=False)
     run(["git", "merge", src, "-m", f"merge: {src} into {target}"])
-    if FLAGS["yes"] or prompt_yes_no(f"Push {target}?"):
+    if FLAGS["yes"]:
+        run(["git", "push", "origin", target], check=False)
+    elif prompt_yes_no(f"Push {target}?"):
         run(["git", "push", "origin", target])
     log(f"✅ Successfully merged {src.upper()} → {target.upper()}")
 
@@ -214,7 +216,9 @@ def cmd_commit(message):
             error("Compliance failed.")
         run(["git", "commit", "-m", message])
         info(f"Committed on {current.upper()}")
-        if FLAGS["yes"] or prompt_yes_no(f"Push {current}?"):
+        if FLAGS["yes"]:
+            run(["git", "push", "origin", current], check=False)
+        elif prompt_yes_no(f"Push {current}?"):
             run(["git", "push", "origin", current])
         log("✅ Commit successful")
     else:
@@ -265,7 +269,11 @@ def cmd_promote(src_input, original_task_id=None):
             cli.move(task_id, "DONE")
 
     if target != "main":
-        if prompt_yes_no(f"Continue promotion from {target.upper()} to next stage?"):
+        if task_id:
+            return  # Stop after TESTING merge when called from tasks.py
+        if FLAGS["yes"] or prompt_yes_no(
+            f"Continue promotion from {target.upper()} to next stage?"
+        ):
             cmd_promote(target, original_task_id=task_id)
 
 
