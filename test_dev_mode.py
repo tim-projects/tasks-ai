@@ -236,14 +236,14 @@ class TestDevMode(unittest.TestCase):
             text=True,
         )
         self.assertEqual(res.returncode, 0)
-        
+
         # Configure dummy tools via config.yaml
         config_data = {
             "repo": {
                 "lint": "/bin/true",
                 "test": "/bin/true",
                 "type_check": "/bin/true",
-                "format": "/bin/true"
+                "format": "/bin/true",
             }
         }
         with open(os.path.join(self.dev_dir, "config.yaml"), "w") as f:
