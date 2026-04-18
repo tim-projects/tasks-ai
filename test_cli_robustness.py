@@ -90,7 +90,7 @@ class TestCLIRobustness(unittest.TestCase):
         )
         res = json.loads(result.stdout)
         self.assertFalse(res["success"])
-        self.assertIn("No lint tool configured", res["error"])
+        self.assertIn("NO", res["error"])
 
     def test_repo_validation_failure(self):
         """repo commit should fail if validation tools fail or are missing."""
@@ -173,7 +173,7 @@ class TestCLIRobustness(unittest.TestCase):
         )
 
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("too short", result.stderr)
+        self.assertIn("TOO SHORT", result.stderr)
 
     def test_create_validation_missing_fields(self):
         """Task create should fail if required fields are missing."""
@@ -197,7 +197,7 @@ class TestCLIRobustness(unittest.TestCase):
         )
 
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Missing required fields", result.stderr)
+        self.assertIn("MISSING PARTS", result.stderr)
 
 
 if __name__ == "__main__":

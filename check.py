@@ -167,7 +167,7 @@ def run_check(tool_type, fix=False, as_json=False, dev=False):
     sys.stderr.flush()
 
     if not tool or tool not in commands:
-        msg = f"No {tool_type} tool configured (expected key: {config_key}). Run 'tasks config detect' or set manually: tasks config set {config_key} <tool>"
+        msg = f"✗ NO {tool_type} TOOL CONFIGURED! (EXPECTED KEY: {config_key})! RUN 'tasks config detect' OR SET MANUALLY: tasks config set {config_key} <tool>! 🔨"
         if as_json:
             print(
                 json.dumps(
@@ -180,7 +180,7 @@ def run_check(tool_type, fix=False, as_json=False, dev=False):
                 )
             )
         else:
-            print(f"Error: {msg}")
+            print(f"✗ HAMMER SAY NO! {msg}")
         return 1
 
     cmd = commands[tool].copy()
@@ -194,7 +194,7 @@ def run_check(tool_type, fix=False, as_json=False, dev=False):
             cmd0 = venv_bin
 
     if not cmd0:
-        msg = f"Tool '{cmd[0]}' not found in PATH. Install it or check configuration."
+        msg = f"✗ TOOL '{cmd[0]}' NOT FOUND IN PATH! INSTALL IT OR CHECK CONFIGURATION! 🔨"
         if as_json:
             print(
                 json.dumps(
@@ -207,7 +207,7 @@ def run_check(tool_type, fix=False, as_json=False, dev=False):
                 )
             )
         else:
-            print(f"Error: {msg}")
+            print(f"✗ HAMMER SAY NO! {msg}")
         return 1
 
     cmd[0] = cmd0
@@ -254,7 +254,7 @@ def run_check(tool_type, fix=False, as_json=False, dev=False):
             stdout_content = ""
             stderr_content = ""
     except subprocess.TimeoutExpired:
-        msg = f"Tool '{tool}' timed out after 5 minutes."
+        msg = f"✗ TOOL '{tool}' TIMED OUT AFTER 5 MINUTES! 🔨"
         if as_json:
             print(
                 json.dumps(
@@ -298,9 +298,9 @@ def run_check(tool_type, fix=False, as_json=False, dev=False):
         else:
             print(f"❌ {tool} failed")
             print(
-                "\n⚠️ Do not bypass the tool - fix the actual code issues, not the validation config."
+                "\n⚠️ HAMMER NO BYPASS TOOL - FIX ACTUAL CODE ISSUES, NOT VALIDATION CONFIG!"
             )
-            print("   See AGENTS.md - Never Skip or Bypass section.")
+            print("   SEE AGENTS.md - NEVER SKIP OR BYPASS SECTION!")
 
     return result.returncode
 
@@ -352,15 +352,15 @@ def run_all(fix=False, as_json=False, dev=False):
         if all_passed:
             print("✅ All checks passed")
         else:
-            print("❌ Some checks failed")
+            print("✗ HAMMER SAY NO! SOME CHECKS FAILED! 🔨")
             for check, code in results.items():
-                status = "✅" if code == 0 else "❌"
+                status = "✓" if code == 0 else "✗"
                 print(f"  {status} {check}")
             print(
-                "\n⚠️ IMPORTANT: Do not modify validation config or disable checks to hide errors."
+                "\n⚠️ HAMMER IMPORTANT: DO NOT MODIFY VALIDATION CONFIG OR DISABLE CHECKS TO HIDE ERRORS!"
             )
-            print("   See AGENTS.md - Never Skip or Bypass section.")
-            print("   Fix the actual code issues, not the validation tool.")
+            print("   SEE AGENTS.md - NEVER SKIP OR BYPASS SECTION!")
+            print("   FIX ACTUAL CODE ISSUES, NOT VALIDATION TOOL!")
 
     return total_code
 
