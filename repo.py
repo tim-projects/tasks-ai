@@ -308,7 +308,9 @@ def ensure_pipeline_branch(name):
         base = PIPELINE[idx + 1]
 
     if not branch_exists(base):
-        if base == "main" and branch_exists("master"):
+        if branch_exists("main"):
+            base = "main"
+        elif branch_exists("master"):
             base = "master"
         else:
             error(f"Cannot create {name}: base branch {base} not found.")
