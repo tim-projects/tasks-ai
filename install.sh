@@ -214,6 +214,7 @@ if [ "$UPGRADE" == "true" ]; then
     curl -sSL "https://raw.githubusercontent.com/tim-projects/tasks-ai/main/tasks.py" -o "$DEST_DIR/tasks.py"
     curl -sSL "https://raw.githubusercontent.com/tim-projects/tasks-ai/main/check.py" -o "$DEST_DIR/check.py"
     curl -sSL "https://raw.githubusercontent.com/tim-projects/tasks-ai/main/repo.py" -o "$DEST_DIR/repo.py"
+    curl -sSL "https://raw.githubusercontent.com/tim-projects/tasks-ai/main/hammer" -o "$DEST_DIR/hammer"
     curl -sSL "https://raw.githubusercontent.com/tim-projects/tasks-ai/main/install.sh" -o "$DEST_DIR/install.sh"
     
     mkdir -p "$DEST_DIR/tasks_ai"
@@ -225,6 +226,7 @@ elif [ "$IS_LOCAL_REPO" == "true" ]; then
     cp "$SCRIPT_DIR/tasks.py" "$DEST_DIR/"
     cp "$SCRIPT_DIR/check.py" "$DEST_DIR/"
     cp "$SCRIPT_DIR/repo.py" "$DEST_DIR/"
+    cp "$SCRIPT_DIR/hammer" "$DEST_DIR/"
     cp "$SCRIPT_DIR/install.sh" "$DEST_DIR/"
     
     if [ -d "$SCRIPT_DIR/tasks_ai" ]; then
@@ -236,6 +238,7 @@ else
     curl -sSL "https://raw.githubusercontent.com/tim-projects/tasks-ai/main/tasks.py" -o "$DEST_DIR/tasks.py"
     curl -sSL "https://raw.githubusercontent.com/tim-projects/tasks-ai/main/check.py" -o "$DEST_DIR/check.py"
     curl -sSL "https://raw.githubusercontent.com/tim-projects/tasks-ai/main/repo.py" -o "$DEST_DIR/repo.py"
+    curl -sSL "https://raw.githubusercontent.com/tim-projects/tasks-ai/main/hammer" -o "$DEST_DIR/hammer"
     curl -sSL "https://raw.githubusercontent.com/tim-projects/tasks-ai/main/install.sh" -o "$DEST_DIR/install.sh"
     
     mkdir -p "$DEST_DIR/tasks_ai"
@@ -248,6 +251,7 @@ fi
 chmod +x "$DEST_DIR/tasks.py"
 chmod +x "$DEST_DIR/check.py"
 chmod +x "$DEST_DIR/repo.py"
+chmod +x "$DEST_DIR/hammer"
 
 # Create symlinks
 rm -f "$SYMLINK_DIR/tasks"
@@ -261,6 +265,9 @@ ln -s "$DEST_DIR/repo.py" "$SYMLINK_DIR/r"
 
 rm -f "$SYMLINK_DIR/check"
 ln -s "$DEST_DIR/check.py" "$SYMLINK_DIR/check"
+
+rm -f "$SYMLINK_DIR/hammer"
+ln -s "$DEST_DIR/hammer" "$SYMLINK_DIR/hammer"
 
 echo "--------------------------------------------------"
 echo "Installation complete!"

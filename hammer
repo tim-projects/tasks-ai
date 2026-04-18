@@ -50,7 +50,6 @@ def main():
         sys.exit(1)
 
     cmd = [sys.executable, str(tool_path)] + args
-    os.chdir(SCRIPT_DIR)
     result = subprocess.run(cmd)
     sys.exit(result.returncode)
 
