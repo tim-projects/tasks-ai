@@ -1749,6 +1749,7 @@ class TasksCLI:
 
         # Trigger automatic promotion for TESTING
         if new_status == "TESTING":
+            print("DEBUG: About to call cmd_promote")
             from repo import cmd_promote, FLAGS
 
             FLAGS["yes"] = yes
@@ -1758,7 +1759,9 @@ class TasksCLI:
             FLAGS["in_promotion"] = True
 
             try:
+                print("DEBUG: Calling cmd_promote")
                 cmd_promote(branch)
+                print("DEBUG: cmd_promote returned")
             except Exception as e:
                 self.error(f"Promotion failed: {e}")
 
