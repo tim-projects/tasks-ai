@@ -1,5 +1,4 @@
 repo.format: ruff
 repo.lint: ruff
-repo.skip_user_test_prompt: 'true'
 repo.test: pytest
 repo.type_check: pyright
