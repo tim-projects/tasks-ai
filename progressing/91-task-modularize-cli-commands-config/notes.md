@@ -2,16 +2,14 @@
 
 ## Progress
 - Extracted `config`, `doctor`, and validation logic into separate files: `tasks_ai/commands.py` and `tasks_ai/validation.py`.
-- Fixed multiple lint/syntax errors across the project (`check.py`, `repo.py`, `tests/test_tasks.py`).
-- Added `PYTHONPATH` configuration to `check.py` to resolve `ModuleNotFoundError` during tests.
-- Implemented full `doctor` logic in `tasks_ai/commands.py`.
+- Fixed multiple lint/syntax errors across the project.
+- Implemented full `doctor` logic.
+- Identified that `test_review_diff_generated` failure is due to configuration format mismatch in tests: tests were using nested `repo: {lint: ...}` config instead of flat `repo.lint: ...`.
 
 ## Findings
-- `pytest` was failing due to `tasks_ai` not being in `PYTHONPATH`.
-- Several files had `E702` (multiple statements on one line) and syntax errors that needed manual fixing.
-- `test_review_diff_generated` is failing due to a validation error during the move to `TESTING`.
+- Test environment uses an outdated configuration schema for `repo.lint/test/type_check/format`.
+- Subprocess calls for validation fail because `check.py` expects flat configuration keys, but test setup provides a nested structure.
 
 ## Mitigations
-- Manually fixed syntax and linting errors to satisfy `check.py all`.
-- Updated `check.py` to dynamically set `PYTHONPATH` for sub-processes.
-- Investigating `test_review_diff_generated` failure and ensuring proper validation state.
+- Updated `tests/test_tasks.py` to use the flat configuration schema for task initialization.
+- Re-running validation to confirm fix.
