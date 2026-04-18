@@ -1,16 +1,14 @@
-<img src="hammer-icon.webp" width="200"/>
-
 # **HAMMER IS BOSS.** LLM SUBMIT. POUND weak code through quality gates to LIVE BLADE! **CODE QUALITY 10X!**
 
-**Your lite/small local or cloud LLM writes code.** Without HAMMER = toy prototypes that break in production.  
+<img src="hammer-icon.webp" width="300"/>
 
-**HAMMER BLOCKS weak code** with test/lint gates. Forces complete specs. Git audit trail PROVES every change.  
+Your lite/small local or cloud LLM writes code. Without HAMMER you get toy prototypes that break in production. HAMMER blocks weak code with test and lint gates, forces complete specs, and tracks every change in git.
 
-**Agents can't skip steps.** Result: shippable code that doesn't explode.  
+Agents can't skip steps. Result: shippable code that doesn't explode in production.
 
 **Zero deps. Git-powered. One-line install.**
 
-# Ship BETTER and CHEAPER with HAMMER: AI-Powered Git-Backed Project Management 🔨⚔️
+## Ship BETTER and CHEAPER with HAMMER: AI-Powered Git-Backed Project Management 🔨⚔️
 
 `tasks` = complete system IN your repo.  
 State machines + quality gates + audit trails + git worktrees.  
