@@ -195,8 +195,19 @@ def ensure_pipeline_branch(name):
         return
     if name not in PIPELINE:
         error(f"❌ BRANCH {name} NOT IN PIPELINE! 🔨")
+
     idx = PIPELINE.index(name)
-    base = PIPELINE[idx + 1] if idx + 1 < len(PIPELINE) else "main"
+    # Recursively ensure base exists if it's in the pipeline
+    if idx + 1 < len(PIPELINE):
+        base = PIPELINE[idx + 1]
+        ensure_pipeline_branch(base)
+    else:
+        # Fallback to main or master
+        base = "main" if branch_exists("main") else "master"
+        if not branch_exists(base):
+            error(f"❌ CANNOT CREATE {name}: BASE BRANCH {base} NOT FOUND! 🔨")
+
+    log(f"Creating pipeline branch {name} from {base}...")
     run(["git", "checkout", "-b", name, base])
     run(["git", "checkout", "-"])
 
