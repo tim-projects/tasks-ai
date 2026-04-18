@@ -1,0 +1,1 @@
+As a developer, I want to reduce the size and complexity of tasks_ai/cli.py by modularizing standalone command groups into dedicated files.
