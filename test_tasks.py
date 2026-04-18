@@ -29,6 +29,20 @@ class TestTasksAI(unittest.TestCase):
         self.script_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "tasks.py"
         )
+        
+        # Setup config
+        config_dir = os.path.join(self.repo_dir, ".tasks")
+        os.makedirs(config_dir, exist_ok=True)
+        config_data = {
+            "repo": {
+                "lint": "/bin/true",
+                "test": "/bin/true",
+                "type_check": "/bin/true",
+                "format": "/bin/true"
+            }
+        }
+        with open(os.path.join(config_dir, "config.yaml"), "w") as f:
+            json.dump(config_data, f)
 
     def tearDown(self):
         shutil.rmtree(self.test_dir)
