@@ -5,5 +5,8 @@
   "Bl": [],
   "Pr": 2,
   "Br": "85-task-automated-pr-review-workflow",
-  "Vp": true
+  "Vp": true,
+  "Tp": true,
+  "Rc": "",
+  "Rv": ""
 }
