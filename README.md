@@ -1,4 +1,4 @@
-# **HAMMER IS BOSS.** LLM SUBMIT. POUND weak code through quality gates to DONE BLADE! **CODE QUALITY 10X!**
+# **HAMMER IS BOSS.** LLM SUBMIT. POUND weak code through quality gates to DONE! **CODE QUALITY 10X!**
 
 <img src="hammer-icon.webp" width="300"/>
 
@@ -62,7 +62,7 @@ BACKLOG → READY → PROGRESSING → TESTING → REVIEW → STAGING → DONE �
 
 | Without HAMMER | With HAMMER |
 |----------------|-------------|
-| Scattered notes | **HAMMER AUDIT BLADE!** Git log every smash |
+| Scattered notes | **HAMMER AUDIT!** Git log every smash |
 | Manual updates | **HAMMER STATE MACHINE!** Gates block weak code |
 | Lost context | **HAMMER HISTORY FULL!** Every change tracked |
 | "What's ready?" | **HAMMER PIPELINE CLEAR!** Testing → Live order |
@@ -73,17 +73,17 @@ BACKLOG → READY → PROGRESSING → TESTING → REVIEW → STAGING → DONE �
 ### Task Management
 ```bash
 hammer tasks init                    # HAMMER BUILD SYSTEM!
-hammer tasks list                     # SHOW ALL BLADES!
-hammer tasks create "SMASH BUG"       # NEW BLADE!
-hammer tasks show 42                  # BLADE DETAIL!
-hammer tasks current                  # ACTIVE BLADE!
+hammer tasks list                     # SHOW ALL!
+hammer tasks create "SMASH BUG"       # NEW METAL!
+hammer tasks show 42                  # METAL DETAIL!
+hammer tasks current                  # ACTIVE METAL!
 ```
 
 ### POUND THROUGH GATES
 ```bash
 hammer tasks move 42 PROGRESSING     # START SMASH! (Creates branch)
 hammer tasks move 42 TESTING         # ✅ HAMMER LIKE! MOVE → TESTING ⚔️🔨
-hammer tasks move 42 DONE            # 🔨 HAMMER SMASH GOOD! DONE BLADE! ⚔️🔨
+hammer tasks move 42 DONE            # 🔨 HAMMER SMASH GOOD! DONE! ⚔️🔨
 ```
 
 ### QUALITY SMASH
@@ -97,12 +97,12 @@ hammer tasks run all                 # HAMMER VALIDATE EVERYTHING!
 
 ```bash
 hammer tasks init                    # ✅ HAMMER LIKE! SYSTEM READY! ⚔️🔨
-hammer tasks create "SMASH LOGIN"    # NEW BLADE 42!
+hammer tasks create "SMASH LOGIN"    # NEW METAL 42!
 hammer tasks move 42 PROGRESSING     # BRANCH CREATE!
 hammer check all                     # ❌ TEST BREAK! HAMMER SAY NO! FIX! 🔨
 # LLM FIXES...
 hammer tasks move 42 TESTING         # ✅ HAMMER LIKE! MOVE → TESTING ⚔️🔨
-hammer tasks move 42 DONE            # 🔨 HAMMER SMASH GOOD! DONE BLADE! ⚔️🔨
+hammer tasks move 42 DONE            # 🔨 HAMMER SMASH GOOD! DONE! ⚔️🔨
 ```
 
 ## ⚙️ Task File (Git-Backed)
