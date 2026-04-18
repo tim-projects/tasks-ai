@@ -325,7 +325,7 @@ def cmd_merge(src_input, target):
     # target is passed as argument, ensure it's used correctly
     ensure_pipeline_branch(target)
 
-    info(f"Merging {src} → {target}")
+    info(f"Merging {src.upper()} → {target.upper()}")
 
     current = get_current_branch()
 
