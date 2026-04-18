@@ -18,23 +18,27 @@ State machines + quality gates + audit trails + git worktrees.
 
 **HAMMER SMASH INSTALL!**
 ```bash
-curl -sSL https://raw.githubusercontent.com/tim-projects/tasks/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/tim-projects/tasks-ai/main/install.sh | bash
 ```
-Installs to `~/.local/bin/tasks`. No sudo.
+Installs `hammer` to `~/.local/bin/hammer`. No sudo.
 
 **Global HAMMER:**
 ```bash
-curl -sSL https://raw.githubusercontent.com/tim-projects/tasks/main/install.sh | sudo bash -s -- -g
+curl -sSL https://raw.githubusercontent.com/tim-projects/tasks-ai/main/install.sh | sudo bash -s -- -g
 ```
 
 ## 🛠️ Getting Started
 
-**HAMMER DEMAND: Add to `AGENTS.md`: `MANAGE TASKS WITH HAMMER. OBEY HAMMER PROTOCOL.`**
+Add this to the top of your `AGENTS.md`:
 
-**Agent autonomously runs:**
-1. `tasks init` - Initialize system  
-2. `tasks list` / `tasks create` - Discover/create tasks
-3. `tasks move` - POUND through Git-native state machine
+```
+MANAGE TASKS WITH HAMMER. OBEY HAMMER PROTOCOL.
+```
+
+Agent autonomously runs:
+1. `hammer tasks init` - Initialize system  
+2. `hammer tasks list` / `hammer tasks create` - Discover/create tasks
+3. `hammer tasks move` - Move through Git-native state machine
 
 ## 🔨 HAMMER STATE MACHINE
 
@@ -48,7 +52,7 @@ BACKLOG → READY → PROGRESSING → TESTING → REVIEW → STAGING → LIVE �
 | Gate | Requirement |
 |------|-------------|
 | PROGRESSING | Complete story/tech/plan |
-| TESTING | `check all` PASSES |
+| TESTING | `hammer check all` PASSES |
 | REVIEW | Tests pass + branch pushed |
 | LIVE | Merged to main |
 | ARCHIVED | Merged to main |
@@ -67,37 +71,37 @@ BACKLOG → READY → PROGRESSING → TESTING → REVIEW → STAGING → LIVE �
 
 ### Task Management
 ```bash
-tasks init                    # HAMMER BUILD SYSTEM!
-tasks list                    # SHOW ALL BLADES!
-tasks create "SMASH BUG"      # NEW BLADE!
-tasks show 42                 # BLADE DETAIL!
-tasks current                 # ACTIVE BLADE!
+hammer tasks init                    # HAMMER BUILD SYSTEM!
+hammer tasks list                     # SHOW ALL BLADES!
+hammer tasks create "SMASH BUG"       # NEW BLADE!
+hammer tasks show 42                  # BLADE DETAIL!
+hammer tasks current                  # ACTIVE BLADE!
 ```
 
 ### POUND THROUGH GATES
 ```bash
-tasks move 42 PROGRESSING     # START SMASH! (Creates branch)
-tasks move 42 TESTING         # ✓ HAMMER LIKE! MOVE → TESTING ⚔️🔨
-tasks move 42 LIVE            # 🔨 HAMMER SMASH GOOD! LIVE BLADE! ⚔️🔨
+hammer tasks move 42 PROGRESSING     # START SMASH! (Creates branch)
+hammer tasks move 42 TESTING         # ✓ HAMMER LIKE! MOVE → TESTING ⚔️🔨
+hammer tasks move 42 LIVE            # 🔨 HAMMER SMASH GOOD! LIVE BLADE! ⚔️🔨
 ```
 
 ### QUALITY SMASH
 ```bash
-check all                     # SMASH ALL CHECKS!
-check lint --fix              # FIX WEAK CODE!
-tasks run all                 # HAMMER VALIDATE EVERYTHING!
+hammer check all                     # SMASH ALL CHECKS!
+hammer check lint --fix              # FIX WEAK CODE!
+hammer tasks run all                 # HAMMER VALIDATE EVERYTHING!
 ```
 
 ## 🎯 REAL HAMMER FLOW
 
 ```bash
-tasks init                    # ✓ HAMMER LIKE! SYSTEM READY! ⚔️🔨
-tasks create "SMASH LOGIN"    # NEW BLADE 42!
-tasks move 42 PROGRESSING     # BRANCH CREATE!
-check all                     # ✗ TEST BREAK! HAMMER SAY NO! FIX! 🔨
+hammer tasks init                    # ✓ HAMMER LIKE! SYSTEM READY! ⚔️🔨
+hammer tasks create "SMASH LOGIN"    # NEW BLADE 42!
+hammer tasks move 42 PROGRESSING     # BRANCH CREATE!
+hammer check all                     # ✗ TEST BREAK! HAMMER SAY NO! FIX! 🔨
 # LLM FIXES...
-tasks move 42 TESTING         # ✓ HAMMER LIKE! MOVE → TESTING ⚔️🔨
-tasks move 42 LIVE            # 🔨 HAMMER SMASH GOOD! LIVE BLADE! ⚔️🔨
+hammer tasks move 42 TESTING         # ✓ HAMMER LIKE! MOVE → TESTING ⚔️🔨
+hammer tasks move 42 LIVE            # 🔨 HAMMER SMASH GOOD! LIVE BLADE! ⚔️🔨
 ```
 
 ## ⚙️ Task File (Git-Backed)
@@ -105,22 +109,22 @@ tasks move 42 LIVE            # 🔨 HAMMER SMASH GOOD! LIVE BLADE! ⚔️🔨
 ```yaml
 ***
 Id: 42
-Ti: SMASH LOGIN BUG
+Ti: Fix login bug
 St: PROGRESSING
 ***
 ## Story
-User cannot login special chars...
+User cannot login with special characters in password.
 
 ## Plan
-1. FIX regex
-2. TEST unicode
-3. CHECK error msg
+1. Fix regex validation
+2. Test unicode input
+3. Check error messages
 ```
 
 ## 🔧 HAMMER CONFIG
 ```bash
-tasks config detect           # HAMMER FIND TOOLS!
-tasks config set repo.test pytest
+hammer tasks config detect           # HAMMER FIND TOOLS!
+hammer tasks config set repo.test pytest
 ```
 
 ## 🎉 Why HAMMER RULES?
