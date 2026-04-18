@@ -1,0 +1,1 @@
+Redesign tasks-ai to use git worktrees for task isolation instead of relying solely on branches. Each task gets its own dedicated worktree, allowing truly independent development while maintaining the ability to merge completed work back into the main project.
