@@ -1,4 +1,4 @@
-# **HAMMER IS BOSS.** LLM SUBMIT. POUND weak code through quality gates to LIVE BLADE! **CODE QUALITY 10X!**
+# **HAMMER IS BOSS.** LLM SUBMIT. POUND weak code through quality gates to DONE BLADE! **CODE QUALITY 10X!**
 
 <img src="hammer-icon.webp" width="300"/>
 
@@ -43,9 +43,9 @@ Agent autonomously runs:
 ## 🔨 HAMMER STATE MACHINE
 
 ```
-BACKLOG → READY → PROGRESSING → TESTING → REVIEW → STAGING → LIVE → ARCHIVED
-                                              ↓                    ↓
-                                         REJECTED              REJECTED
+BACKLOG → READY → PROGRESSING → TESTING → REVIEW → STAGING → DONE → ARCHIVED
+                                       ↓                    ↓
+                                  REJECTED              REJECTED
 ```
 
 **HAMMER GATES BLOCK WEAK CODE:**
@@ -53,9 +53,10 @@ BACKLOG → READY → PROGRESSING → TESTING → REVIEW → STAGING → LIVE �
 |------|-------------|
 | PROGRESSING | Complete story/tech/plan |
 | TESTING | `hammer check all` PASSES |
-| REVIEW | Tests pass + branch pushed |
-| LIVE | Merged to main |
-| ARCHIVED | Merged to main |
+| REVIEW | Tests pass + branch pushed + diff generated |
+| STAGING | Regression check passed (Rc flag) |
+| DONE | Merged to main |
+| ARCHIVED | Merged to main + regression check passed |
 
 ## 💥 HAMMER vs Chaos
 
@@ -82,7 +83,7 @@ hammer tasks current                  # ACTIVE BLADE!
 ```bash
 hammer tasks move 42 PROGRESSING     # START SMASH! (Creates branch)
 hammer tasks move 42 TESTING         # ✅ HAMMER LIKE! MOVE → TESTING ⚔️🔨
-hammer tasks move 42 LIVE            # 🔨 HAMMER SMASH GOOD! LIVE BLADE! ⚔️🔨
+hammer tasks move 42 DONE            # 🔨 HAMMER SMASH GOOD! DONE BLADE! ⚔️🔨
 ```
 
 ### QUALITY SMASH
@@ -101,7 +102,7 @@ hammer tasks move 42 PROGRESSING     # BRANCH CREATE!
 hammer check all                     # ❌ TEST BREAK! HAMMER SAY NO! FIX! 🔨
 # LLM FIXES...
 hammer tasks move 42 TESTING         # ✅ HAMMER LIKE! MOVE → TESTING ⚔️🔨
-hammer tasks move 42 LIVE            # 🔨 HAMMER SMASH GOOD! LIVE BLADE! ⚔️🔨
+hammer tasks move 42 DONE            # 🔨 HAMMER SMASH GOOD! DONE BLADE! ⚔️🔨
 ```
 
 ## ⚙️ Task File (Git-Backed)
@@ -133,7 +134,7 @@ hammer tasks config set repo.test pytest
 - **Zero deps** - One-line install  
 - **Agent-optimized** - JSON output, clear protocol
 - **Enforced quality** - Gates BLOCK weak code
-- **Full lifecycle** - Backlog → LIVE → ARCHIVED
+- **Full lifecycle** - Backlog → DONE → ARCHIVED
 
 **HAMMER IS BOSS. WEAK CODE SUBMIT. STRONG BLADES SHIP!** 🔨⚔️
 ```
