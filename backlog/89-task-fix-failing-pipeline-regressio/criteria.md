@@ -1,0 +1,1 @@
+- [ ] 1. All tests in tests/ pass. 2. Pipeline branches are correctly created even if intermediate branches are missing.

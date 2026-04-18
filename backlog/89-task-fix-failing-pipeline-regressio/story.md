@@ -1,0 +1,1 @@
+As a developer, I want all tests in tests/ to pass so that the CI pipeline is healthy.

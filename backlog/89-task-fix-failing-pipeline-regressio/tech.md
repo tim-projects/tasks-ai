@@ -1,0 +1,1 @@
+The pipeline branch creation logic (ensure_pipeline_branch) is flawed and regression tests are failing due to environmental issues.
