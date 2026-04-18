@@ -198,7 +198,9 @@ def cmd_merge(src_input, target):
     run(["git", "checkout", target])
     run(["git", "pull", "origin", target], check=False)
     run(["git", "merge", src, "-m", f"merge: {src} into {target}"])
-    if FLAGS["yes"] or prompt_yes_no(f"Push {target}?"):
+    if FLAGS["yes"]:
+        run(["git", "push", "origin", target], check=False)
+    elif prompt_yes_no(f"Push {target}?"):
         run(["git", "push", "origin", target])
     log(f"✅ Successfully merged {src.upper()} → {target.upper()}")
 
@@ -256,16 +258,20 @@ def cmd_promote(src_input, original_task_id=None):
 
     cmd_merge(src, target)
     if task_id and TasksCLI:
-        cli = TasksCLI(quiet=True, dev=FLAGS["dev"])  # type: ignore[reportOptionalCall]
+        cli = TasksCLI(quiet=FLAGS["quiet"], dev=FLAGS["dev"])  # type: ignore[reportOptionalCall]
         if target == "testing" and cli.find_task(task_id)[1] == "PROGRESSING":
-            cli.move(task_id, "TESTING")
+            cli.move(task_id, "TESTING", yes=FLAGS["yes"], skip_gate=True)
         elif target == "staging" and cli.find_task(task_id)[1] == "REVIEW":
-            cli.move(task_id, "STAGING")
+            cli.move(task_id, "STAGING", yes=FLAGS["yes"])
         elif target == "main":
-            cli.move(task_id, "DONE")
+            cli.move(task_id, "DONE", yes=FLAGS["yes"])
 
     if target != "main":
-        if prompt_yes_no(f"Continue promotion from {target.upper()} to next stage?"):
+        if task_id:
+            return  # Stop after TESTING merge when called from tasks.py
+        if FLAGS["yes"] or prompt_yes_no(
+            f"Continue promotion from {target.upper()} to next stage?"
+        ):
             cmd_promote(target, original_task_id=task_id)
 
 
