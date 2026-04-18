@@ -380,7 +380,7 @@ def cmd_merge(src_input, target):
             print(
                 f"{CYAN}[repo]{NC} HINT: You can disable this prompt by running: tasks config set repo.skip_user_test_prompt true"
             )
-            if not prompt_yes_no("Proceed with promotion?"):
+            if not prompt_yes_no(f"Proceed with promotion to {target}?"):
                 info(
                     "Promotion halted. Please run your user tests manually, then re-run 'repo promote <task>' to continue."
                 )
