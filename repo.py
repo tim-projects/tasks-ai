@@ -195,10 +195,14 @@ def cmd_merge(src_input, target):
         error("Compliance failed.")
 
     log(f"Merging {src} into {target}...")
+    print(f"DEBUG: FLAGS before merge: {FLAGS}")
     run(["git", "checkout", target])
     run(["git", "pull", "origin", target], check=False)
     run(["git", "merge", src, "-m", f"merge: {src} into {target}"])
+    print(f"DEBUG: FLAGS after merge: {FLAGS}")
+    print(f"DEBUG: yes value: {FLAGS['yes']}")
     if FLAGS["yes"]:
+        print("DEBUG: Yes flag is True, pushing...")
         run(["git", "push", "origin", target], check=False)
     elif prompt_yes_no(f"Push {target}?"):
         run(["git", "push", "origin", target])
