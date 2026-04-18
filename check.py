@@ -294,9 +294,9 @@ def run_check(tool_type, fix=False, as_json=False, dev=False):
             print(result.stderr, file=sys.stderr)
 
         if result.returncode == 0:
-            print(f"✅ {tool} passed")
+            print(f"✓ HAMMER LIKE! {tool} PASSED! ⚔️🔨")
         else:
-            print(f"❌ {tool} failed")
+            print(f"✗ HAMMER SAY NO! {tool} FAILED! 🔨")
             print(
                 "\n⚠️ HAMMER NO BYPASS TOOL - FIX ACTUAL CODE ISSUES, NOT VALIDATION CONFIG!"
             )
@@ -331,7 +331,7 @@ def run_all(fix=False, as_json=False, dev=False):
             last_hash = f.read().strip()
         if last_hash == current_hash:
             if not as_json:
-                print("✅ Codebase unchanged, skipping validation.")
+                print("✓ CODE UNCHANGED! HAMMER SKIP VALIDATION! ⚔️🔨")
             return 0
 
     results = {}
@@ -350,7 +350,7 @@ def run_all(fix=False, as_json=False, dev=False):
         print("\n" + "=" * 40)
         all_passed = total_code == 0
         if all_passed:
-            print("✅ All checks passed")
+            print("✓ HAMMER LIKE! ALL CHECKS PASSED! ⚔️🔨")
         else:
             print("✗ HAMMER SAY NO! SOME CHECKS FAILED! 🔨")
             for check, code in results.items():
