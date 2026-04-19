@@ -22,6 +22,11 @@ class TestTasksAI(unittest.TestCase):
             ["git", "config", "user.email", "test@example.com"], cwd=self.repo_dir
         )
         subprocess.run(["git", "config", "user.name", "Test User"], cwd=self.repo_dir)
+
+        # Setup .gitignore as a file, not tracked in git to avoid issues
+        with open(os.path.join(self.repo_dir, ".gitignore"), "w") as f:
+            f.write("check.py\nrepo.py\n")
+
         with open(os.path.join(self.repo_dir, "README.md"), "w") as f:
             f.write("# Test Repo")
         subprocess.run(["git", "add", "README.md"], cwd=self.repo_dir)
@@ -56,7 +61,7 @@ class TestTasksAI(unittest.TestCase):
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         shutil.copy(os.path.join(base_dir, "repo.py"), self.repo_dir)
         result = subprocess.run(
-            [sys.executable, self.script_path, "-j"] + args,
+            [sys.executable, self.script_path, "-j", "--dev"] + args,
             cwd=self.repo_dir,
             env={**os.environ, "TASKS_TESTING": "1"},
             capture_output=True,

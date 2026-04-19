@@ -384,7 +384,6 @@ def run_all(fix=False, as_json=False, dev=False):
 
     return total_code
 
-
 def main():
     parser = argparse.ArgumentParser(
         prog="check",
@@ -398,7 +397,19 @@ def main():
     )
     parser.add_argument("--fix", action="store_true", help="Apply fixes where possible")
     parser.add_argument("--json", action="store_true", help="JSON output")
-    parser.add_argument("--dev", action="store_true", help="Use /tmp/.tasks for config")
+    parser.add_argument("--dev", action="store_true", help="Use /tmp/.tasks as root")
+    args, _ = parser.parse_known_args()
+
+    global ROOT
+    if args.dev:
+        ROOT = "/tmp"
+    else:
+        ROOT = find_project_root()
+
+    if not ROOT:
+        print("❌ FAILED TO FIND PROJECT ROOT!")
+        sys.exit(1)
+    # ... rest of main ...
 
     args = parser.parse_args()
 

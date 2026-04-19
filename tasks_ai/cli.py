@@ -329,8 +329,15 @@ class TasksCLI:
         check_path = os.path.join(self.root, "check.py")
         if not os.path.exists(check_path):
             return
+        
+        cmd = [sys.executable, check_path, "lint"]
+        if fix:
+            cmd.append("--fix")
+        if self.dev:
+            cmd.append("--dev")
+            
         result = subprocess.run(
-            [sys.executable, check_path, "lint"] + (["--fix"] if fix else []),
+            cmd,
             cwd=self.root,
             capture_output=True,
             text=True,
@@ -2642,6 +2649,8 @@ class TasksCLI:
             cmd.append("--fix")
         if self.as_json:
             cmd.append("--json")
+        if self.dev:
+            cmd.append("--dev")
 
         # Run check.py and capture output to pass it through TasksCLI's finish/error
         result = subprocess.run(cmd, cwd=self.root, capture_output=True, text=True)
