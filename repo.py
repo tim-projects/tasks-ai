@@ -357,7 +357,7 @@ def cmd_promote(src_input, original_task_id=None):
         elif target == "main":
             cli.move(task_id, "DONE")
 
-    if target != "main":
+    if target != "main" and not get_skip_push():
         if prompt_yes_no(f"Continue promotion from {target.upper()} to next stage?"):
             cmd_promote(target, original_task_id=task_id)
 

@@ -236,8 +236,20 @@ class TasksCLI:
 
     def _get_remote(self, cwd=None):
         """Identify the primary git remote name (prefers config, then 'origin', then any available)."""
-        # Check for configured remote in .tasks/config.yaml
+        # Check for skip_push in config first
         config_path = os.path.join(self.root, ".tasks", "config.yaml")
+        if os.path.exists(config_path):
+            try:
+                import yaml
+
+                with open(config_path) as f:
+                    config = yaml.safe_load(f) or {}
+                if config.get("repo", {}).get("skip_push"):
+                    return None
+            except Exception:
+                pass
+
+        # Check for configured remote in .tasks/config.yaml
         if os.path.exists(config_path):
             try:
                 import yaml
@@ -1593,7 +1605,9 @@ class TasksCLI:
 
         if not force:
             remote = self._get_remote()
-            has_origin = self._run_git(["remote", "get-url", remote]).returncode == 0
+            has_origin = (
+                remote and self._run_git(["remote", "get-url", remote]).returncode == 0
+            )
             if new_status in ("REVIEW", "STAGING", "DONE", "ARCHIVED"):
                 if has_origin:
                     if not self._run_git(
