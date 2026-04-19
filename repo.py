@@ -114,8 +114,29 @@ def get_current_branch():
     ).stdout.strip()
 
 
+def get_skip_push():
+    """Check if push should be skipped based on config."""
+    cfg_root = find_project_root()
+    if not cfg_root:
+        cfg_root = os.getcwd()
+    config_path = os.path.join(cfg_root, ".tasks", "config.yaml")
+    if os.path.exists(config_path):
+        try:
+            import yaml
+
+            with open(config_path) as f:
+                config = yaml.safe_load(f) or {}
+            return config.get("repo", {}).get("skip_push", False)
+        except Exception:
+            pass
+    return False
+
+
 def get_remote():
     """Identify the primary git remote name (prefers config, then 'origin', then any available)."""
+    # Check for skip_push in config first
+    if get_skip_push():
+        return None
     # Check for configured remote in .tasks/config.yaml
     cfg_root = find_project_root()
     if not cfg_root:
