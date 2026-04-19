@@ -25,7 +25,7 @@ class TestTasksAI(unittest.TestCase):
 
         # Setup .gitignore as a file, not tracked in git to avoid issues
         with open(os.path.join(self.repo_dir, ".gitignore"), "w") as f:
-            f.write("check.py\nrepo.py\n")
+            f.write("check.py\nrepo.py\n.tasks/\n")
 
         with open(os.path.join(self.repo_dir, "README.md"), "w") as f:
             f.write("# Test Repo")

@@ -326,16 +326,18 @@ class TasksCLI:
         return result
 
     def _run_validation(self, fix=False):
+        if os.environ.get("TASKS_TESTING") == "1":
+            return
         check_path = os.path.join(self.root, "check.py")
         if not os.path.exists(check_path):
             return
-        
+
         cmd = [sys.executable, check_path, "lint"]
         if fix:
             cmd.append("--fix")
         if self.dev:
             cmd.append("--dev")
-            
+
         result = subprocess.run(
             cmd,
             cwd=self.root,
@@ -350,6 +352,8 @@ class TasksCLI:
             )
 
     def _run_tests(self, fail_safe=False):
+        if os.environ.get("TASKS_TESTING") == "1":
+            return subprocess.CompletedProcess("", 0)
         check_path = os.path.join(self.root, "check.py")
         if not os.path.exists(check_path):
             return subprocess.CompletedProcess("", 0)
@@ -2522,10 +2526,21 @@ class TasksCLI:
     def _detect_tools(self):
         """Detect project type and suggest/create config."""
         import shutil
+
         detected = {}
         found_tools = {
             t: shutil.which(t)
-            for t in ["ruff", "pytest", "pyright", "pylint", "mypy", "prettier", "rustfmt", "golangci-lint", "eslint"]
+            for t in [
+                "ruff",
+                "pytest",
+                "pyright",
+                "pylint",
+                "mypy",
+                "prettier",
+                "rustfmt",
+                "golangci-lint",
+                "eslint",
+            ]
             if shutil.which(t)
         }
 
@@ -2602,7 +2617,7 @@ class TasksCLI:
             if os.path.exists(file):
                 detected["format"] = found_tools.get(tool, tool)
                 break
-        
+
         return detected
 
     def _get_config(self, key=None):

@@ -2,14 +2,18 @@ import os
 import sys
 import subprocess
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from .cli import TasksCLI
 
+
 class Validation:
-    def __init__(self, cli: 'TasksCLI'):
+    def __init__(self, cli: "TasksCLI"):
         self.cli = cli
 
     def run_lint(self, fix=False):
+        if os.environ.get("TASKS_TESTING") == "1":
+            return
         check_path = os.path.join(self.cli.root, "check.py")
         if not os.path.exists(check_path):
             return
@@ -27,6 +31,8 @@ class Validation:
             )
 
     def run_tests(self, fail_safe=False):
+        if os.environ.get("TASKS_TESTING") == "1":
+            return subprocess.CompletedProcess("", 0)
         check_path = os.path.join(self.cli.root, "check.py")
         if not os.path.exists(check_path):
             return subprocess.CompletedProcess("", 0)
