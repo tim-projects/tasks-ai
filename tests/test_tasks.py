@@ -33,7 +33,7 @@ class TestTasksAI(unittest.TestCase):
         subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=self.repo_dir)
         # Compute absolute path to tasks.py based on this file's location
         self.script_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tasks.py"
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hammer"
         )
 
         # Setup config - use skip_push to avoid remote operations
@@ -63,7 +63,7 @@ class TestTasksAI(unittest.TestCase):
         shutil.copy(os.path.join(base_dir, "repo.py"), self.repo_dir)
         # Use skip_push in test config so no -y flag needed
         result = subprocess.run(
-            [sys.executable, self.script_path, "-j", "--dev"] + args,
+            [sys.executable, self.script_path, "tasks", "-j", "--dev"] + args,
             cwd=self.repo_dir,
             env={**os.environ, "TASKS_TESTING": "1"},
             capture_output=True,
