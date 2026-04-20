@@ -24,7 +24,7 @@ class TestRobustness(unittest.TestCase):
         subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=self.repo_dir)
         # Compute absolute path to tasks.py based on this file's location
         self.script_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tasks.py"
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hammer"
         )
 
         # Setup config
@@ -36,6 +36,7 @@ class TestRobustness(unittest.TestCase):
                 "test": "/bin/true",
                 "type_check": "/bin/true",
                 "format": "/bin/true",
+                "skip_push": True,
             }
         }
         with open(os.path.join(config_dir, "config.yaml"), "w") as f:
@@ -45,14 +46,25 @@ class TestRobustness(unittest.TestCase):
         shutil.rmtree(self.test_dir)
 
     def run_cmd(self, args, check=False):
+        # Copy check.py and repo.py to test repo
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        shutil.copy(os.path.join(base_dir, "check.py"), self.repo_dir)
+        shutil.copy(os.path.join(base_dir, "repo.py"), self.repo_dir)
+
         result = subprocess.run(
-            [sys.executable, self.script_path, "-j"] + args,
+            [sys.executable, self.script_path, "tasks", "-j", "--dev"] + args,
             cwd=self.repo_dir,
+            env={**os.environ, "TASKS_TESTING": "1"},
             capture_output=True,
             text=True,
         )
+        # Try to parse JSON, handling possible non-JSON output before it
+        output = result.stdout
+        json_start = output.find("{")
+        if json_start >= 0:
+            output = output[json_start:]
         try:
-            data = json.loads(result.stdout)
+            data = json.loads(output)
             return data
         except json.JSONDecodeError:
             return {
@@ -130,7 +142,6 @@ class TestRobustness(unittest.TestCase):
         self.assertFalse(res["success"], res)
         self.assertIn("circular", res.get("error", "").lower())
 
-    @unittest.skip("Skipping failing test_revert_progressing_to_testing")
     def test_revert_progressing_to_testing(self):
         """4. Move to TESTING, then revert to PROGRESSING."""
         self.run_cmd(["init"])
@@ -172,7 +183,6 @@ class TestRobustness(unittest.TestCase):
         res = self.run_cmd(["move", file, "PROGRESSING"])
         self.assertTrue(res["success"], res)
 
-    @unittest.skip("Skipping failing test_revert_staging_to_progressing")
     def test_revert_staging_to_progressing(self):
         """5. Move to STAGING, then move to REVIEW."""
         self.run_cmd(["init"])
@@ -236,7 +246,6 @@ class TestRobustness(unittest.TestCase):
         res = self.run_cmd(["move", str(file_id), "REVIEW"])
         self.assertTrue(res["success"], res)
 
-    @unittest.skip("Skipping failing test_delete_done_task_fails")
     def test_delete_done_task_fails(self):
         """7. Attempt to delete task when not in DONE state."""
         self.run_cmd(["init"])
@@ -317,7 +326,6 @@ class TestRobustness(unittest.TestCase):
         res = self.run_cmd(["delete", file])
         self.assertTrue(res["success"], res)
 
-    @unittest.skip("Skipping failing test_reconcile_non_merged")
     def test_reconcile_non_merged(self):
         """8. Reconcile with non-merged branches."""
         self.run_cmd(["init"])
@@ -773,7 +781,6 @@ class TestRobustness(unittest.TestCase):
         res = self.run_cmd(["list"])
         self.assertTrue(res["success"], res)
 
-    @unittest.skip("Skipping failing test_cleanup_merged_task")
     def test_cleanup_merged_task(self):
         """21. Run tasks cleanup on merged tasks."""
         self.run_cmd(["init"])
@@ -967,7 +974,6 @@ class TestRobustness(unittest.TestCase):
         res = json.loads(result.stdout)
         self.assertFalse(res["success"], res)
 
-    @unittest.skip("Skipping failing test_link_archived_task")
     def test_link_archived_task(self):
         """26. Attempt to link an ARCHIVED task to a new task."""
         self.run_cmd(["init"])
@@ -1089,7 +1095,6 @@ class TestRobustness(unittest.TestCase):
         res = self.run_cmd(["move", file, "READY"])
         self.assertFalse(res["success"], res)
 
-    @unittest.skip("Skipping failing test_branch_deletion_after_cleanup")
     def test_branch_deletion_after_cleanup(self):
         """29. Verify task branch deletion after tasks cleanup."""
         self.run_cmd(["init"])
@@ -1169,7 +1174,6 @@ class TestRobustness(unittest.TestCase):
         res = self.run_cmd(["cleanup", "--dry-run"])
         self.assertTrue(res["success"], res)
 
-    @unittest.skip("Skipping failing test_concurrent_move_operations")
     def test_concurrent_move_operations(self):
         """30. Test sequential move operations on the same task."""
         self.run_cmd(["init"])
@@ -1408,7 +1412,6 @@ class TestRobustness(unittest.TestCase):
         )
         self.assertEqual(branch_exists.returncode, 0)
 
-    @unittest.skip("Skipping failing test_task_movement_workflow")
     def test_task_movement_workflow(self):
         """41. Test task movement through valid workflow."""
         self.run_cmd(["init"])
@@ -1564,7 +1567,6 @@ class TestRobustness(unittest.TestCase):
         res = self.run_cmd(["init"])
         self.assertTrue(res["success"], res)
 
-    @unittest.skip("Skipping failing test_regression_check_gate_blocks_staging")
     def test_regression_check_gate_blocks_staging(self):
         """Test that moving from REVIEW to STAGING is blocked until --regression-check."""
         self.run_cmd(["init"])
@@ -1634,7 +1636,6 @@ class TestRobustness(unittest.TestCase):
         res = self.run_cmd(["move", file, "STAGING"])
         self.assertTrue(res["success"])
 
-    @unittest.skip("Skipping failing test_regression_workflow_cycle")
     def test_regression_workflow_cycle(self):
         """Test full regression workflow cycle: REVIEW -> PROGRESSING -> (fix) -> REVIEW -> STAGING."""
         self.run_cmd(["init"])
