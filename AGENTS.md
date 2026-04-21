@@ -21,15 +21,30 @@ hammer tasks -j list
 
 When testing the tool itself or performing "dry runs" of task operations without affecting the project's real `.tasks` worktree, use the `--dev` flag. This will use `/tmp/.tasks` as an isolated storage directory. Note that the `--dev` flag is strictly for testing tool behavior and operational workflows in an isolated environment; it should NOT be used to create tasks meant for real project progress.
 
+**Always use the test-setup script for testing:**
+
 ```bash
-# Reset dev environment (if corrupted or needs fresh start)
+# Reset and initialize dev environment for testing (one command)
+./scripts/test-setup.sh reset
+./scripts/test-setup.sh init
+
+# Or use reset-dev.sh (legacy)
 ./scripts/reset-dev.sh
 
-# Initialize dev environment
+# Initialize after reset
 hammer tasks --dev init
 
 # Run any command in dev mode
 hammer tasks --dev list
+```
+
+**Running Tests:**
+
+```bash
+# Run tests (use --dev flag for test repos that need dev mode)
+./scripts/reset-dev.sh && hammer tasks --dev init
+python -m pytest tests/test_tasks.py -v
+python -m pytest tests/test_robustness.py -v
 ```
 
 ## 🤖 Discovery & Protocol

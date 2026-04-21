@@ -41,8 +41,15 @@ class TasksCLI:
         self.root = self._get_git_root()
 
         # Determine tasks directory
-        self.tasks_dir = TASKS_DIR
-        if dev:
+        # Priority: 1. TASKS_ROOT env var, 2. dev flag, 3. default
+        self.tasks_dir = TASKS_DIR  # default
+        tasks_root_env = os.environ.get("TASKS_ROOT")
+        if tasks_root_env:
+            self.tasks_dir = tasks_root_env
+            self.dev = True
+            if not os.path.exists(self.tasks_dir):
+                os.makedirs(self.tasks_dir, exist_ok=True)
+        elif dev:
             self.tasks_dir = "/tmp/.tasks"
             if not os.path.exists(self.tasks_dir):
                 os.makedirs(self.tasks_dir, exist_ok=True)
@@ -540,6 +547,13 @@ class TasksCLI:
 
     def init(self):
         if self.dev:
+            # Preserve config.yaml if it exists
+            config_yaml = os.path.join(self.tasks_path, "config.yaml")
+            config_backup = None
+            if os.path.exists(config_yaml):
+                with open(config_yaml, "r") as f:
+                    config_backup = f.read()
+
             for folder in list(STATE_FOLDERS.values()):
                 p = os.path.join(self.tasks_path, folder)
                 if not os.path.exists(p):
@@ -571,6 +585,11 @@ class TasksCLI:
                     capture_output=True,
                 )
 
+            # Restore config.yaml if there was one
+            if config_backup:
+                with open(config_yaml, "w") as f:
+                    f.write(config_backup)
+
             self.log(f"Dev tasks initialized at {self.tasks_path}")
             self.finish()
             return
@@ -594,7 +613,18 @@ class TasksCLI:
         if not is_worktree:
             if os.path.exists(self.tasks_path):
                 if os.path.isdir(self.tasks_path):
+                    # Preserve config.yaml if it exists
+                    config_yaml = os.path.join(self.tasks_path, "config.yaml")
+                    config_backup = None
+                    if os.path.exists(config_yaml):
+                        with open(config_yaml, "r") as f:
+                            config_backup = f.read()
                     shutil.rmtree(self.tasks_path)
+                    # Restore config.yaml
+                    if config_backup:
+                        os.makedirs(self.tasks_path, exist_ok=True)
+                        with open(config_yaml, "w") as f:
+                            f.write(config_backup)
                 else:
                     os.remove(self.tasks_path)
             self._run_git(["worktree", "add", self.tasks_path, TASKS_BRANCH])
@@ -1664,10 +1694,16 @@ class TasksCLI:
                     newer_than_testing = True
 
                 if not has_unstaged and not newer_than_testing:
-                    self.error(
-                        f"❌ BRANCH '{branch}' NO UNSTAGED CHANGES AND NO COMMITS NEWER THAN TESTING! "
-                        f"MAKE PROGRESS BEFORE TESTING! HAMMER NO BYPASS TOOL! 🔨",
-                    )
+                    merge_base = self._run_git(
+                        ["merge-base", branch_tip_sha, testing_sha],
+                        cwd=self.root,
+                    ).stdout.strip()
+                    testing_contains_branch = merge_base == testing_sha
+                    if not testing_contains_branch:
+                        self.error(
+                            f"❌ BRANCH '{branch}' NO UNSTAGED CHANGES AND NO COMMITS NEWER THAN TESTING! "
+                            f"MAKE PROGRESS BEFORE TESTING! HAMMER NO BYPASS TOOL! 🔨",
+                        )
 
             if new_status == "REVIEW":
                 merge_base = self._run_git(

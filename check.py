@@ -79,9 +79,6 @@ def load_config(dev=False):
     # Always find the project root first to determine the runtime environment
     runtime_root = find_project_root()
 
-    # Check if we're in test mode - use a known path to get real project
-    in_test_mode = os.environ.get("TASKS_TESTING") == "1"
-
     # In test mode, find the real project by looking for .tasks in common locations
     real_project_root = None
     candidates = [

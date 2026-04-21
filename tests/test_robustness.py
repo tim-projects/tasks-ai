@@ -52,9 +52,13 @@ class TestRobustness(unittest.TestCase):
         shutil.copy(os.path.join(base_dir, "repo.py"), self.repo_dir)
 
         result = subprocess.run(
-            [sys.executable, self.script_path, "tasks", "-j", "--dev"] + args,
+            [sys.executable, self.script_path, "tasks", "-j"] + args,
             cwd=self.repo_dir,
-            env={**os.environ, "TASKS_TESTING": "1"},
+            env={
+                **os.environ,
+                "TASKS_TESTING": "1",
+                "TASKS_ROOT": os.path.join(self.repo_dir, ".tasks"),
+            },
             capture_output=True,
             text=True,
         )
@@ -966,12 +970,16 @@ class TestRobustness(unittest.TestCase):
         subprocess.run(["git", "add", "README.md"], cwd=non_task_dir)
         subprocess.run(["git", "commit", "-m", "Initial"], cwd=non_task_dir)
         result = subprocess.run(
-            [sys.executable, self.script_path, "-j", "list"],
+            [sys.executable, self.script_path, "tasks", "-j", "list"],
             cwd=non_task_dir,
             capture_output=True,
             text=True,
         )
-        res = json.loads(result.stdout)
+        output = result.stdout
+        json_start = output.find("{")
+        if json_start >= 0:
+            output = output[json_start:]
+        res = json.loads(output)
         self.assertFalse(res["success"], res)
 
     def test_link_archived_task(self):

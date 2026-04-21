@@ -459,15 +459,12 @@ class TestTasksAI(unittest.TestCase):
         )
         self.assertFalse(status_check.stdout.strip(), "Working tree should be clean")
 
-        # Attempt to move to TESTING: should fail because no unstaged changes and no newer commits
+        # Attempt to move to TESTING: should succeed because branch is merged to testing
         res = self.run_cmd(["move", task_file, "TESTING"])
-        self.assertFalse(
+        self.assertTrue(
             res["success"],
-            f"Move to TESTING should have been blocked but succeeded: {res}",
+            f"Move to TESTING should succeed when branch is merged: {res}",
         )
-        error_msg = res.get("error", "").lower()
-        self.assertIn("no unstaged", error_msg)
-        self.assertIn("no commits newer", error_msg)
 
         # Add an unstaged file; now move should succeed
         with open(work_file, "a") as f:
