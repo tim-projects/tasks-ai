@@ -1761,19 +1761,11 @@ class TasksCLI:
                 )
 
         # Trigger automatic promotion for TESTING
-        # Only promote if we just moved the task AND it's not already in TESTING
+        # Note: cmd_promote is called separately; here we just ensure the task state is correct
         if new_status == "TESTING" and current_state == "PROGRESSING":
-            self.log("Automatically promoting to testing branch...")
-            from repo import cmd_promote, FLAGS
-
-            FLAGS["yes"] = yes
-            FLAGS["quiet"] = self.quiet
-            FLAGS["dev"] = self.dev
-
-            try:
-                cmd_promote(branch)
-            except Exception as e:
-                self.error(f"Promotion failed: {e}")
+            self.log(
+                "Task moved to TESTING. Run 'repo promote <branch>' to merge to testing branch."
+            )
 
         # Regression check enforcement for ARCHIVED
         if new_status == "ARCHIVED":
