@@ -250,7 +250,7 @@ def run_check(tool_type, fix=False, as_json=False, dev=False):
                 pass
         else:
             # Stream output directly to console to avoid deadlocks
-            result = subprocess.run(print(cmd),cmd_to_run, cwd=project_root, timeout=300)
+            result = subprocess.run(cmd_to_run, cwd=project_root, timeout=300)
             stdout_content = ""
             stderr_content = ""
     except subprocess.TimeoutExpired:

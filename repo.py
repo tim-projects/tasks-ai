@@ -179,15 +179,19 @@ def branch_exists(name):
 def resolve_branch(name):
     if name == "current":
         return get_current_branch()
-    if name.isdigit() and TasksCLI:
+
+    # Extract numeric ID if present (e.g., "89-task-xxx" -> "89")
+    numeric_id = name.split("-")[0] if name else None
+    if numeric_id and numeric_id.isdigit() and TasksCLI:
         cli = TasksCLI(quiet=True, dev=FLAGS["dev"])  # type: ignore[reportOptionalCall]
-        path, _ = cli.find_task(name)
+        path, _ = cli.find_task(numeric_id)
         if path:
             branch_name = os.path.basename(path)
             return branch_name
+
     if branch_exists(name):
         return name
-    error(f"❌ COULD NOT RESOLVE BRANCH: {name}! 🔨")
+    error(f"COULD NOT RESOLVE BRANCH: {name}!")
 
 
 def ensure_pipeline_branch(name):
