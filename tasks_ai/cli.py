@@ -1761,7 +1761,8 @@ class TasksCLI:
                 )
 
         # Trigger automatic promotion for TESTING
-        if new_status == "TESTING":
+        # Only promote if we just moved the task AND it's not already in TESTING
+        if new_status == "TESTING" and current_state == "PROGRESSING":
             self.log("Automatically promoting to testing branch...")
             from repo import cmd_promote, FLAGS
 
