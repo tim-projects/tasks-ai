@@ -1761,11 +1761,9 @@ class TasksCLI:
                 )
 
         # Trigger automatic promotion for TESTING
-        # Note: cmd_promote is called separately; here we just ensure the task state is correct
+        # File must be moved FIRST so cmd_promote sees the task already in TESTING
         if new_status == "TESTING" and current_state == "PROGRESSING":
-            self.log(
-                "Task moved to TESTING. Run 'repo promote <branch>' to merge to testing branch."
-            )
+            self.log("Automatically promoting to testing branch...")
 
         # Regression check enforcement for ARCHIVED
         if new_status == "ARCHIVED":
@@ -1791,6 +1789,19 @@ class TasksCLI:
 
             self._atomic_write(new_filepath, task)
             self._append_log(new_filepath, f"{current_state}->{new_status}")
+
+            # NOW call cmd_promote - task is already in TESTING so no recursive call
+            if new_status == "TESTING":
+                from repo import cmd_promote, FLAGS
+
+                FLAGS["yes"] = yes
+                FLAGS["quiet"] = self.quiet
+                FLAGS["dev"] = self.dev
+
+                try:
+                    cmd_promote(branch)
+                except Exception as e:
+                    self.error(f"Promotion failed: {e}")
             if new_status == "ARCHIVED":
                 task_id = task.metadata.get("Id", "")
                 title = task.metadata.get("Ti", "")
