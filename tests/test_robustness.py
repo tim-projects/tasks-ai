@@ -36,6 +36,7 @@ class TestRobustness(unittest.TestCase):
                 "test": "/bin/true",
                 "type_check": "/bin/true",
                 "format": "/bin/true",
+                "skip_push": True,
             }
         }
         with open(os.path.join(config_dir, "config.yaml"), "w") as f:

@@ -261,38 +261,26 @@ class TasksCLI:
         self.log(
             f"[DEBUG] branch={branch}, default_branch={default_branch}, main_sha={main_sha}"
         )
+        with open("/tmp/debug_diff.log", "a") as f:
+            f.write(f"DEBUG: branch={branch}, default_branch={default_branch}, main_sha={main_sha}, root={self.root}\n")
 
         diff_content = ""
 
         if main_sha:
-            # Get commits on branch not in main (if any)
+            # Get diff between fork point and branch: git diff <main_sha>...<branch>
+            # Three dots means: diff between the common ancestor of main and branch, and branch.
             result = self._run_git(
-                ["log", "--patch", f"{main_sha}..{branch}"], cwd=self.root
+                ["diff", f"{default_branch}...{branch}"], cwd=self.root
             )
             self.log(
-                f"[DEBUG] log-patch cmd returncode={result.returncode}, stdout len={len(result.stdout)}"
+                f"[DEBUG] branch-diff cmd returncode={result.returncode}, stdout len={len(result.stdout)}"
             )
             if result.returncode == 0 and result.stdout.strip():
                 diff_content += result.stdout
+            else:
 
-            # Also get diff of changes introduced by this branch (using merge-base)
-            # This handles cases where branch was merged into testing/main
-            merge_base_result = self._run_git(
-                ["merge-base", main_sha, branch], cwd=self.root
-            )
-            if merge_base_result.returncode == 0 and merge_base_result.stdout.strip():
-                merge_base = merge_base_result.stdout.strip()
-                result = self._run_git(
-                    ["diff", merge_base, branch, "--patch"], cwd=self.root
-                )
-                self.log(
-                    f"[DEBUG] branch diff (from merge-base) returncode={result.returncode}, stdout len={len(result.stdout)}"
-                )
-                if result.returncode == 0 and result.stdout.strip():
-                    if diff_content and not diff_content.endswith("\n"):
-                        diff_content += "\n"
-                    diff_content += f"# Changes on {branch} since merge-base:\n"
-                    diff_content += result.stdout
+                self.log(f"[DEBUG] branch-diff cmd stderr: {result.stderr}")
+>>>>>>> 88-task-rename-project-to-hammer-marke
 
         # Get unstaged working tree changes
         result = self._run_git(["diff", "--patch"], cwd=self.root)
@@ -758,7 +746,7 @@ class TasksCLI:
             missing.append("--repro")
         if missing:
             self.error(
-                f"Missing required fields: {', '.join(missing)}. Task not created. These are required to move to PROGRESSING anyway."
+                f"MISSING PARTS: {', '.join(missing)}! HAMMER SAY NO! FIX! 🔨"
             )
 
         MIN_LEN = 15
@@ -784,7 +772,7 @@ class TasksCLI:
             if len(repro_str.strip()) < MIN_LEN:
                 too_short.append(f"--repro (min {MIN_LEN} chars)")
         if too_short:
-            self.error(f"Fields too short: {', '.join(too_short)}. Task not created.")
+            self.error(f"TOO SHORT: {', '.join(too_short)}! HAMMER SAY NO! FIX! 🔨")
 
         if priority is not None:
             try:

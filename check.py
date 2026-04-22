@@ -168,8 +168,31 @@ def run_check(tool_type, fix=False, as_json=False, dev=False):
 
     tool_basename = os.path.basename(tool) if tool else None
     lookup_key = tool_basename if (tool and tool_basename in commands) else tool
+
     if not tool or lookup_key not in commands:
-        msg = f"No {tool_type} tool configured (expected key: {config_key}). Run 'tasks config detect' or set manually: tasks config set {config_key} <tool>"
+        # Try auto-detecting once if tool is missing
+        project_root = find_project_root()
+        tasks_py = os.path.join(project_root, "tasks.py")
+        if os.path.exists(tasks_py):
+            if not as_json:
+                print(
+                    f"⚠️ NO {tool_type.upper()} CONFIGURED! ATTEMPTING AUTO-DETECTION... 🔨"
+                )
+
+            subprocess.run(
+                [sys.executable, tasks_py, "config", "detect", "--save"],
+                cwd=project_root,
+                capture_output=True,
+                text=True,
+            )
+            # Reload config and try again
+            config = load_config(dev)
+            tool = config.get(config_key)
+            tool_basename = os.path.basename(tool) if tool else None
+            lookup_key = tool_basename if (tool and tool_basename in commands) else tool
+
+    if not tool or lookup_key not in commands:
+        msg = f"❌ NO {tool_type.upper()} TOOL CONFIGURED! (EXPECTED KEY: {config_key})! RUN 'tasks config detect' OR SET MANUALLY: tasks config set {config_key} <tool>! 🔨"
         if as_json:
             print(
                 json.dumps(
@@ -228,11 +251,11 @@ def run_check(tool_type, fix=False, as_json=False, dev=False):
         # Also exclude known-failing tests that have pre-existing issues unrelated to task changes
         cmd_to_run.extend(
             [
-                "test_cli_robustness.py",
-                "test_repo.py",
-                "test_security.py",
-                "--ignore=test_tasks.py",
-                "--ignore=test_robustness.py",
+                "tests/test_cli_robustness.py",
+                "tests/test_repo.py",
+                "tests/test_security.py",
+                "--ignore=tests/test_tasks.py",
+                "--ignore=tests/test_robustness.py",
             ]
         )
         # Add PYTHONPATH so tests can import tasks_ai modules

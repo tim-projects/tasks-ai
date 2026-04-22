@@ -30,17 +30,19 @@ class TestTasksAI(unittest.TestCase):
             os.path.dirname(os.path.abspath(__file__)), "tasks.py"
         )
 
-        # Setup config
-        config_dir = os.path.join(self.repo_dir, ".tasks")
-        os.makedirs(config_dir, exist_ok=True)
-        config_data = {
-            "repo": {
-                "lint": "/bin/true",
-                "test": "/bin/true",
-                "type_check": "/bin/true",
-                "format": "/bin/true",
-            }
-        }
+# Setup config - use skip_push to avoid remote operations
+config_dir = os.path.join(self.repo_dir, ".tasks")
+os.makedirs(config_dir, exist_ok=True)
+config_data = {
+    "repo": {
+        "lint": "/bin/true",
+        "test": "/bin/true",
+        "type_check": "/bin/true",
+        "format": "/bin/true",
+        "skip_push": True,
+    }
+}
+
         with open(os.path.join(config_dir, "config.yaml"), "w") as f:
             json.dump(config_data, f)
 
