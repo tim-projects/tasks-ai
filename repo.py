@@ -249,19 +249,20 @@ def cmd_promote(src_input, original_task_id=None):
         else ("staging" if src == "testing" else "main")
     )
 
+    current_status = None
     if task_id and TasksCLI:
         cli = TasksCLI(quiet=True, dev=FLAGS["dev"], yes=FLAGS["yes"])  # type: ignore[reportOptionalCall]
-        path, status = cli.find_task(task_id)
+        path, current_status = cli.find_task(task_id)
         if path:
             if target in ("staging", "main"):
-                if status == "TESTING":
+                if current_status == "TESTING":
                     info(f"Task {task_id} in TESTING. Moving to REVIEW for audit.")
                     cli.move(task_id, "REVIEW")
                     error(
                         f"Task {task_id} moved to REVIEW for audit.",
                         hint=f"Run 'tasks modify {task_id} --regression-check' before promoting.",
                     )
-                if status == "REVIEW":
+                if current_status == "REVIEW":
                     from tasks_ai.file_manager import FM
 
                     task = FM.load(path)
@@ -271,17 +272,33 @@ def cmd_promote(src_input, original_task_id=None):
                             hint=f"Run 'tasks modify {task_id} --regression-check'.",
                         )
 
-    cmd_merge(src, target)
-    if task_id and TasksCLI:
-        cli = TasksCLI(quiet=True, dev=FLAGS["dev"], yes=FLAGS["yes"])  # type: ignore[reportOptionalCall]
-        if target == "testing" and cli.find_task(task_id)[1] == "PROGRESSING":
-            cli.move(task_id, "TESTING")
-        elif target == "staging" and cli.find_task(task_id)[1] == "REVIEW":
-            cli.move(task_id, "STAGING")
+    needs_move = False
+    if task_id and TasksCLI and current_status:
+        if target == "testing" and current_status == "PROGRESSING":
+            needs_move = True
+        elif target == "staging" and current_status == "REVIEW":
+            needs_move = True
         elif target == "main":
-            cli.move(task_id, "DONE")
+            needs_move = True
 
-    if target != "main":
+    if src not in PIPELINE or needs_move:
+        cmd_merge(src, target)
+
+    if task_id and TasksCLI and needs_move:
+        cli = TasksCLI(quiet=True, dev=FLAGS["dev"], yes=FLAGS["yes"])  # type: ignore[reportOptionalCall]
+        new_status = None
+        if target == "testing":
+            new_status = "TESTING"
+        elif target == "staging":
+            new_status = "STAGING"
+        elif target == "main":
+            new_status = "DONE"
+        if new_status:
+            status = cli.find_task(task_id)[1]
+            if status != new_status:
+                cli.move(task_id, new_status)
+
+    if target != "main" and src not in PIPELINE:
         if prompt_yes_no(f"Continue promotion from {target.upper()} to next stage?"):
             cmd_promote(target, original_task_id=task_id)
 
