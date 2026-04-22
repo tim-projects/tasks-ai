@@ -5,6 +5,7 @@
   "Bl": [],
   "Pr": 2,
   "Br": "102-task-automate-archived-transition-f",
-  "Rc": "",
-  "Vp": true
+  "Rc": true,
+  "Vp": true,
+  "Tp": true
 }
