@@ -1,1 +1,1 @@
-- [ ] Test criteria for auto promo
+- [x] Test criteria for auto promo
