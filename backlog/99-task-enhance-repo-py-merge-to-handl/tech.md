@@ -1,0 +1,1 @@
+Modify cmd_merge in repo.py to: 1) Accept task IDs as input, 2) Resolve task ID to branch name, 3) Catch pipeline errors, 4) Prompt user for confirmation with a clear explanation of what will happen.

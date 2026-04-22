@@ -1,0 +1,1 @@
+1. 1. Modify resolve_branch to handle task IDs\n2. Update cmd_merge error handling\n3. Add confirmation prompt for cross-branch merges

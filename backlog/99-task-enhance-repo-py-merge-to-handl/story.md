@@ -1,0 +1,1 @@
+Currently repo.py merge fails with 'Branch X not in pipeline' when merging between task branches. We should implement smart ID resolution: detect if the input is a task ID, look up the corresponding branch, and on failure prompt for confirmation before proceeding.
