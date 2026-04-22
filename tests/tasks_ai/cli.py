@@ -2890,7 +2890,7 @@ class TasksCLI:
             return re.sub(r"[^a-z0-9\-]", "-", name.lower())
 
         def create_bug_report(bug_id, title, repro, expected, actual):
-            bug_filename = f"tasks-ai-bug-{sanitize_filename(bug_id)}.md"
+            bug_filename = f"hammer-bug-{sanitize_filename(bug_id)}.md"
             bug_path = os.path.join(self.tasks_path, bug_filename)
             content = f"""# Bug Report: {title}
 
@@ -3251,8 +3251,8 @@ class TasksCLI:
         """Upgrade tasks to latest version by running install.sh."""
         import shutil
 
-        user_dir = os.path.expanduser("~/.local/tasks-ai")
-        system_dir = "/opt/tasks-ai"
+        user_dir = os.path.expanduser("~/.local/hammer")
+        system_dir = "/opt/hammer"
 
         can_write_user = os.access(user_dir, os.W_OK)
         can_write_system = os.access(system_dir, os.W_OK)
@@ -3267,7 +3267,7 @@ class TasksCLI:
             install_path = system_dir
             mode = "system"
         else:
-            self.error("Cannot write to either ~/.local/tasks-ai or /opt/tasks-ai")
+            self.error("Cannot write to either ~/.local/hammer or /opt/hammer")
 
         install_script = os.path.join(install_path, "install.sh")
 
@@ -3291,7 +3291,7 @@ class TasksCLI:
                 [
                     "curl",
                     "-sSL",
-                    "https://raw.githubusercontent.com/tim-projects/tasks-ai/main/install.sh",
+                    "https://raw.githubusercontent.com/tim-projects/hammer/main/install.sh",
                     "-o",
                     install_script,
                 ],

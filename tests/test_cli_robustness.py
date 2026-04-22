@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 
+
 class TestCLIRobustness(unittest.TestCase):
     def setUp(self):
         self.test_dir = "/tmp/test_cli_robustness"
@@ -16,7 +17,7 @@ class TestCLIRobustness(unittest.TestCase):
         self.tasks_py = os.path.join(os.getcwd(), "tasks.py")
         self.repo_py = os.path.join(os.getcwd(), "repo.py")
         self.check_py = os.path.join(os.getcwd(), "check.py")
-        
+
         # Init repo
         subprocess.run(["git", "init"], cwd=self.repo_dir, capture_output=True)
 
@@ -30,21 +31,21 @@ class TestCLIRobustness(unittest.TestCase):
             cwd=self.repo_dir,
             capture_output=True,
         )
-    
+
         # Copy check.py to temp repo because repo.py calls it
         shutil.copy(self.check_py, self.repo_dir)
-    
+
         # Configure a tool that is missing from PATH
         subprocess.run(
             [sys.executable, self.tasks_py, "config", "set", "repo.lint", "ruff"],
             cwd=self.repo_dir,
             capture_output=True,
         )
-    
+
         # Create a change to commit
         with open(os.path.join(self.repo_dir, "change.txt"), "w") as f:
             f.write("change")
-    
+
         # Run repo commit - should fail because ruff is missing (unless installed)
         subprocess.run(
             [
@@ -58,14 +59,14 @@ class TestCLIRobustness(unittest.TestCase):
             cwd=self.repo_dir,
             capture_output=True,
         )
-    
+
         result = subprocess.run(
             [sys.executable, self.repo_py, "commit", "test commit"],
             cwd=self.repo_dir,
             capture_output=True,
             text=True,
         )
-    
+
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("failed", result.stdout + result.stderr)
 
@@ -76,7 +77,7 @@ class TestCLIRobustness(unittest.TestCase):
             cwd=self.repo_dir,
             capture_output=True,
         )
-    
+
         # Test with missing fields
         result = subprocess.run(
             [
@@ -89,7 +90,7 @@ class TestCLIRobustness(unittest.TestCase):
             capture_output=True,
             text=True,
         )
-    
+
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("MISSING PARTS", result.stderr)
 
@@ -100,7 +101,7 @@ class TestCLIRobustness(unittest.TestCase):
             cwd=self.repo_dir,
             capture_output=True,
         )
-    
+
         # Test with too short fields
         result = subprocess.run(
             [
@@ -121,9 +122,10 @@ class TestCLIRobustness(unittest.TestCase):
             capture_output=True,
             text=True,
         )
-    
+
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("TOO SHORT", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
