@@ -262,7 +262,9 @@ class TasksCLI:
             f"[DEBUG] branch={branch}, default_branch={default_branch}, main_sha={main_sha}"
         )
         with open("/tmp/debug_diff.log", "a") as f:
-            f.write(f"DEBUG: branch={branch}, default_branch={default_branch}, main_sha={main_sha}, root={self.root}\n")
+            f.write(
+                f"DEBUG: branch={branch}, default_branch={default_branch}, main_sha={main_sha}, root={self.root}\n"
+            )
 
         diff_content = ""
 
@@ -743,9 +745,7 @@ class TasksCLI:
         if task_type == "issue" and not repro:
             missing.append("--repro")
         if missing:
-            self.error(
-                f"MISSING PARTS: {', '.join(missing)}! HAMMER SAY NO! FIX! 🔨"
-            )
+            self.error(f"MISSING PARTS: {', '.join(missing)}! HAMMER SAY NO! FIX! 🔨")
 
         MIN_LEN = 15
         too_short = []

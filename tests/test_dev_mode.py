@@ -312,8 +312,12 @@ class TestDevMode(unittest.TestCase):
             f.write("def dev_feature():\n    return 'dev'\n")
 
         # Ensure we are on the correct branch
-        subprocess.run(["git", "checkout", task_file], cwd=self.root, capture_output=True)
-        subprocess.run(["git", "add", "dev_feature.py"], cwd=self.root, capture_output=True)
+        subprocess.run(
+            ["git", "checkout", task_file], cwd=self.root, capture_output=True
+        )
+        subprocess.run(
+            ["git", "add", "dev_feature.py"], cwd=self.root, capture_output=True
+        )
         res_commit = subprocess.run(
             ["git", "commit", "-m", "Add dev feature implementation"],
             cwd=self.root,
@@ -327,14 +331,24 @@ class TestDevMode(unittest.TestCase):
         # Move to TESTING (requires branch ahead of testing)
         subprocess.run(["git", "branch", "testing"], cwd=self.root, capture_output=True)
         # Merge task branch into testing, then add one more commit to task branch so it's ahead
-        subprocess.run(["git", "checkout", "testing"], cwd=self.root, capture_output=True)
+        subprocess.run(
+            ["git", "checkout", "testing"], cwd=self.root, capture_output=True
+        )
         subprocess.run(["git", "merge", task_file], cwd=self.root, capture_output=True)
-        subprocess.run(["git", "checkout", task_file], cwd=self.root, capture_output=True)
+        subprocess.run(
+            ["git", "checkout", task_file], cwd=self.root, capture_output=True
+        )
         # Add another commit to be definitely ahead
         with open(code_file, "a") as f:
             f.write("def dev_feature_extra():\n    return 'extra'\n")
-        subprocess.run(["git", "add", "dev_feature.py"], cwd=self.root, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "Add more dev feature implementation"], cwd=self.root, capture_output=True)
+        subprocess.run(
+            ["git", "add", "dev_feature.py"], cwd=self.root, capture_output=True
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "Add more dev feature implementation"],
+            cwd=self.root,
+            capture_output=True,
+        )
 
         res = subprocess.run(
             [
@@ -362,7 +376,10 @@ class TestDevMode(unittest.TestCase):
             ["git", "checkout", "-b", "testing"], cwd=self.root, capture_output=True
         )
         check_testing = subprocess.run(
-            ["git", "branch", "--list", "testing"], cwd=self.root, capture_output=True, text=True
+            ["git", "branch", "--list", "testing"],
+            cwd=self.root,
+            capture_output=True,
+            text=True,
         )
         print(f"[TEST] testing branch check: '{check_testing.stdout.strip()}'")
         print("[TEST] Created testing branch")
