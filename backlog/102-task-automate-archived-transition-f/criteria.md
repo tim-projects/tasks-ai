@@ -1,0 +1,1 @@
+- [ ] 3. Clear error message if branch not merged

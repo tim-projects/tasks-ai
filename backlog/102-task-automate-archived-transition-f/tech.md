@@ -1,0 +1,1 @@
+Check if last commit SHA of task branch exists in main using 'git rev-parse branch^0' and 'git branch --contains SHA | grep main'. If branch is merged, skip directly to ARCHIVED. Otherwise, enforce normal state machine.

@@ -1,0 +1,1 @@
+When a branch has been merged to main, we should be able to archive the task with just 'python tasks.py move <id> ARCHIVED -y'. Currently it fails because REVIEW->ARCHIVED is not allowed. The system should detect that the last commit on the branch exists in main, and if so, automatically promote the task through the pipeline (or allow direct transition to ARCHIVED).

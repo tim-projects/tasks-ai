@@ -1,0 +1,1 @@
+1. 4. If not merged, show error explaining why direct archive is not allowed
