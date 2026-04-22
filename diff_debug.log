@@ -4,3 +4,6 @@ branch=69-task-rename-done-state-to-done, main_sha=abba63f074ec92d70ff9d8386c625
 branch=81-task-test-review-gate, main_sha=abba63f074ec92d70ff9d8386c625af1ca3df8fb, diff_len=66780
 branch=80-task-fix-promote-tool-workflow-gate, main_sha=abba63f074ec92d70ff9d8386c625af1ca3df8fb, diff_len=71704
 branch=83-task-verify-refactored-review-gate, main_sha=abba63f074ec92d70ff9d8386c625af1ca3df8fb, diff_len=79906
+branch=96-task-test-move-now, main_sha=dda292a2532083cd273d637a3e433edaea96cb9a, diff_len=629701
+branch=97-task-test-auto-promo, main_sha=dda292a2532083cd273d637a3e433edaea96cb9a, diff_len=630340
+branch=98-task-test-auto-promo, main_sha=dda292a2532083cd273d637a3e433edaea96cb9a, diff_len=630440
