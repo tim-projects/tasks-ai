@@ -278,9 +278,7 @@ class TasksCLI:
             if result.returncode == 0 and result.stdout.strip():
                 diff_content += result.stdout
             else:
-
                 self.log(f"[DEBUG] branch-diff cmd stderr: {result.stderr}")
->>>>>>> 88-task-rename-project-to-hammer-marke
 
         # Get unstaged working tree changes
         result = self._run_git(["diff", "--patch"], cwd=self.root)

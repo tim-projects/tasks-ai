@@ -349,6 +349,10 @@ class TestDevMode(unittest.TestCase):
         subprocess.run(
             ["git", "checkout", "-b", "testing"], cwd=self.root, capture_output=True
         )
+        check_testing = subprocess.run(
+            ["git", "branch", "--list", "testing"], cwd=self.root, capture_output=True, text=True
+        )
+        print(f"[TEST] testing branch check: '{check_testing.stdout.strip()}'")
         print("[TEST] Created testing branch")
         res_merge = subprocess.run(
             ["git", "merge", branch], cwd=self.root, capture_output=True, text=True
