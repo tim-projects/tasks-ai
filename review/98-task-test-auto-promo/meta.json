@@ -6,6 +6,6 @@
   "Pr": 2,
   "Br": "98-task-test-auto-promo",
   "Vp": true,
-  "Rc": "",
-  "Tp": true
+  "Rc": true,
+  "Tp": false
 }
