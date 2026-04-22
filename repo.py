@@ -12,7 +12,7 @@ Commands:
   branch list                - List all branches
   branch create <name>       - Create and switch to new branch
   branch delete <name>       - Delete local branch
-  push                       - Push current branch to remote
+  push                       - Push current branch to origin
   commit <message>           - Add all changes and commit with message (runs compliance)
   cleanup                    - Run tasks cleanup
 
@@ -50,39 +50,38 @@ PIPELINE = ["testing", "staging", "main"]
 
 
 def log(msg):
-    if not FLAGS["quiet"]:
+    if not FLAGS["quiet"] and not FLAGS["json"]:
         print(f"{GREEN}[repo]{NC} {msg}")
 
 
 def warn(msg):
-    if not FLAGS["quiet"]:
-        print(f"{YELLOW}⚠️ HAMMER WARN:{NC} {msg}")
+    if not FLAGS["quiet"] and not FLAGS["json"]:
+        print(f"{YELLOW}[repo] WARN:{NC} {msg}")
 
 
 def error(msg, hint=None):
     if hint:
-        msg = f"{msg} | FIX: {hint}"
+        msg = f"{msg} | HINT: {hint}"
     if FLAGS["json"]:
         print(json.dumps({"success": False, "error": msg}))
     else:
-        print(f"❌ HAMMER SAY NO! {msg} 🔨")
+        print(f"{RED}[repo] ERROR:{NC} {msg}")
     sys.exit(1)
 
 
 def info(msg):
-    if not FLAGS["quiet"]:
-        print(f"{CYAN}ℹ️ HAMMER:{NC} {msg}")
+    if not FLAGS["quiet"] and not FLAGS["json"]:
+        print(f"{CYAN}[repo]{NC} {msg}")
 
 
 def find_project_root(start_path=None):
     if start_path is None:
         start_path = os.getcwd()
     current = os.path.abspath(start_path)
-    print(f"DEBUG: current={current}", file=sys.stderr)
     while True:
-        if os.path.isdir(os.path.join(current, ".tasks")) or os.path.isdir(
-            os.path.join(current, ".git")
-        ):
+        if os.path.isdir(os.path.join(current, ".git")):
+            return current
+        if os.path.isdir(os.path.join(current, ".tasks")):
             return current
         parent = os.path.dirname(current)
         if parent == current:
@@ -91,8 +90,9 @@ def find_project_root(start_path=None):
     return Path(__file__).parent.resolve()
 
 
-def run(cmd, check=True, capture=False, env=None, cwd=None):
+def run(cmd, check=True, capture=False, env=None, cwd=None, quiet=False):
     project_root = find_project_root()
+    capture = capture or quiet or FLAGS["json"]
     try:
         return subprocess.run(
             cmd,
@@ -104,7 +104,7 @@ def run(cmd, check=True, capture=False, env=None, cwd=None):
         )
     except subprocess.CalledProcessError as e:
         err_msg = e.stderr if capture else ""
-        error(f"❌ COMMAND FAIL! {' '.join(cmd)}\n{err_msg}! 🔨")
+        error(f"Command failed: {' '.join(cmd)}\n{err_msg}")
         raise
 
 
@@ -112,74 +112,6 @@ def get_current_branch():
     return run(
         ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture=True
     ).stdout.strip()
-
-
-def get_skip_push():
-    """Check if push should be skipped based on config."""
-    cfg_root = find_project_root()
-    if not cfg_root:
-        cfg_root = os.getcwd()
-    config_path = os.path.join(cfg_root, ".tasks", "config.yaml")
-    if os.path.exists(config_path):
-        try:
-            import yaml
-
-            with open(config_path) as f:
-                config = yaml.safe_load(f) or {}
-            return config.get("repo", {}).get("skip_push", False)
-        except Exception:
-            pass
-    return False
-
-
-def get_remote():
-    """Identify the primary git remote name (prefers config, then 'origin', then any available)."""
-    # Check for skip_push in config first
-    if get_skip_push():
-        return None
-    # Check for configured remote in .tasks/config.yaml
-    cfg_root = find_project_root()
-    if not cfg_root:
-        cfg_root = os.getcwd()
-    config_path = os.path.join(cfg_root, ".tasks", "config.yaml")
-    if os.path.exists(config_path):
-        try:
-            import yaml
-
-            with open(config_path) as f:
-                config = yaml.safe_load(f) or {}
-            remote = config.get("repo", {}).get("remote")
-            if remote:
-                # Verify remote exists
-                try:
-                    run(["git", "remote", "get-url", remote], capture=True)
-                    return remote
-                except Exception:
-                    pass
-        except ImportError:
-            pass
-        except Exception:
-            pass
-
-    # Check if 'origin' exists
-    try:
-        run(["git", "remote", "get-url", "origin"], capture=True)
-        return "origin"
-    except Exception:
-        pass
-
-    # Fallback to the first remote listed
-    try:
-        res = run(["git", "remote"], capture=True)
-        if res.stdout.strip():
-            remotes = res.stdout.strip().split("\n")
-            if "github" in remotes:
-                return "github"
-            return remotes[0]
-    except Exception:
-        pass
-
-    return None  # No remote found
 
 
 def prompt_yes_no(prompt):
@@ -193,12 +125,12 @@ def prompt_yes_no(prompt):
             if res in ["n", "no"]:
                 return False
     except EOFError:
-        error("❌ EOFError: stdin CLOSED! USE -y FLAG AUTO-CONFIRM! 🔨")
+        error("EOFError: stdin closed. Use -y flag to auto-confirm.")
 
 
 class ToolRunner:
-    def run_validation(self, fix=False, dev=False):
-        git_root = find_project_root()
+    def run_validation(self, fix=False, dev=False, cwd=None):
+        git_root = cwd or find_project_root()
         local_check = os.path.join(git_root, "check.py")
         cmd = [sys.executable, local_check, "all"]
         if fix:
@@ -206,14 +138,8 @@ class ToolRunner:
         if dev:
             cmd.append("--dev")
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=git_root)
-        print(
-            f"DEBUG: cmd={cmd}, stdout={result.stdout}, stderr={result.stderr}",
-            file=sys.stderr,
-        )
         if result.returncode != 0:
-            warn(
-                f"Validation failed. STDOUT: {result.stdout} | STDERR: {result.stderr}"
-            )
+            warn("Validation failed")
             return False
         log("✅ Validation passed")
         return True
@@ -228,40 +154,42 @@ def branch_exists(name):
     )
 
 
+def check_origin_exists():
+    result = run(["git", "remote", "get-url", "origin"], check=False, capture=True)
+    if result.returncode != 0:
+        if FLAGS["yes"]:
+            warn("No 'origin' remote - continuing in local-only mode")
+            return False
+        warn("No 'origin' remote - continuing in local-only mode")
+        return False
+    return True
+
+
 def resolve_branch(name):
     if name == "current":
         return get_current_branch()
     if name.isdigit() and TasksCLI:
-        cli = TasksCLI(quiet=True, dev=FLAGS["dev"])  # type: ignore[reportOptionalCall]
+        cli = TasksCLI(quiet=True, dev=FLAGS["dev"], yes=FLAGS["yes"])  # type: ignore[reportOptionalCall]
         path, _ = cli.find_task(name)
         if path:
             branch_name = os.path.basename(path)
             return branch_name
     if branch_exists(name):
         return name
-    error(f"❌ COULD NOT RESOLVE BRANCH: {name}! 🔨")
+    error(f"Could not resolve branch: {name}")
 
 
 def ensure_pipeline_branch(name):
     if branch_exists(name):
         return
     if name not in PIPELINE:
-        error(f"❌ BRANCH {name} NOT IN PIPELINE! 🔨")
-
+        error(f"Branch {name} not in pipeline.")
     idx = PIPELINE.index(name)
-    # Recursively ensure base exists if it's in the pipeline
-    if idx + 1 < len(PIPELINE):
-        base = PIPELINE[idx + 1]
-        ensure_pipeline_branch(base)
-    else:
-        # Fallback to main or master
-        base = "main" if branch_exists("main") else "master"
-        if not branch_exists(base):
-            error(f"❌ CANNOT CREATE {name}: BASE BRANCH {base} NOT FOUND! 🔨")
-
-    log(f"Creating pipeline branch {name} from {base}...")
-    run(["git", "checkout", "-b", name, base])
-    run(["git", "checkout", "-"])
+    base = PIPELINE[idx + 1] if idx + 1 < len(PIPELINE) else "main"
+    if not branch_exists(base):
+        base = get_current_branch()
+    run(["git", "checkout", "-b", name, base], quiet=True)
+    run(["git", "checkout", "-"], quiet=True)
 
 
 def cmd_merge(src_input, target):
@@ -277,38 +205,37 @@ def cmd_merge(src_input, target):
             run(["git", "commit", "-m", f"WIP: Auto-commit {current}"])
         run(["git", "checkout", src])
 
-    if not ToolRunner().run_validation(fix=True, dev=FLAGS["dev"]):
-        error("Compliance failed.")
-
-    log(f"⚒️ HAMMER MERGE {src} into {target}... 🔨")
+    log(f"Merging {src} into {target}...")
     run(["git", "checkout", target])
-    remote = get_remote()
-    if remote:
-        run(["git", "pull", remote, target], check=False)
-    run(["git", "merge", src, "-m", f"merge: {src} into {target}"])
-    if remote and (FLAGS["yes"] or prompt_yes_no(f"Push {target}?")):
-        run(["git", "push", remote, target])
+    if check_origin_exists():
+        run(["git", "pull", "origin", target], check=False)
     else:
-        warn("No remote configured - skipping push")
+        warn("No remote - skipping pull")
+    run(["git", "merge", src, "-m", f"merge: {src} into {target}"])
+    if check_origin_exists():
+        if FLAGS["yes"] or prompt_yes_no(f"Push {target}?"):
+            run(["git", "push", "origin", target])
+    else:
+        warn("No remote - skipping push")
     log(f"✅ Successfully merged {src.upper()} → {target.upper()}")
 
 
 def cmd_commit(message):
     if not message:
-        error("❌ commit: MESSAGE REQUIRED! 🔨")
+        error("commit: message required")
     current = get_current_branch()
     st = run(["git", "status", "--porcelain"], capture=True).stdout.strip()
     if st:
         run(["git", "add", "."])
         if not ToolRunner().run_validation(fix=True, dev=FLAGS["dev"]):
-            error("❌ COMPLIANCE FAIL! 🔨")
+            error("Compliance failed.")
         run(["git", "commit", "-m", message])
         info(f"Committed on {current.upper()}")
-        remote = get_remote()
-        if remote and (FLAGS["yes"] or prompt_yes_no(f"Push {current}?")):
-            run(["git", "push", remote, current])
-        else:
-            warn("No remote configured - skipping push")
+        if FLAGS["yes"] or prompt_yes_no(f"Push {current}?"):
+            if not check_origin_exists():
+                pass  # continue locally
+            else:
+                run(["git", "push", "origin", current])
         log("✅ Commit successful")
     else:
         warn("No changes to commit")
@@ -325,48 +252,68 @@ def cmd_promote(src_input, original_task_id=None):
         else ("staging" if src == "testing" else "main")
     )
 
+    current_status = None
     if task_id and TasksCLI:
-        cli = TasksCLI(quiet=True, dev=FLAGS["dev"])  # type: ignore[reportOptionalCall]
-        path, status = cli.find_task(task_id)
+        cli = TasksCLI(quiet=True, dev=FLAGS["dev"], yes=FLAGS["yes"])  # type: ignore[reportOptionalCall]
+        path, current_status = cli.find_task(task_id)
         if path:
             if target in ("staging", "main"):
-                if status == "TESTING":
+                if current_status == "TESTING":
                     info(f"Task {task_id} in TESTING. Moving to REVIEW for audit.")
                     cli.move(task_id, "REVIEW")
                     error(
-                        f"❌ TASK {task_id} MOVED TO REVIEW FOR AUDIT! 🔨",
-                        hint=f"RUN 'tasks modify {task_id} --regression-check' BEFORE PROMOTING!",
+                        f"Task {task_id} moved to REVIEW for audit.",
+                        hint=f"Run 'tasks modify {task_id} --regression-check' before promoting.",
                     )
-                if status == "REVIEW":
+                if current_status == "REVIEW":
                     from tasks_ai.file_manager import FM
 
                     task = FM.load(path)
                     if not task.metadata.get("Rc"):
                         error(
-                            "❌ REGRESSION CHECK NOT PASSED! 🔨",
-                            hint=f"RUN 'tasks modify {task_id} --regression-check'!",
+                            "Regression check not passed.",
+                            hint=f"Run 'tasks modify {task_id} --regression-check'.",
                         )
 
-    cmd_merge(src, target)
-    if task_id and TasksCLI:
-        cli = TasksCLI(quiet=True, dev=FLAGS["dev"])  # type: ignore[reportOptionalCall]
-        if target == "testing" and cli.find_task(task_id)[1] == "PROGRESSING":
-            cli.move(task_id, "TESTING")
-        elif target == "staging" and cli.find_task(task_id)[1] == "REVIEW":
-            cli.move(task_id, "STAGING")
+    needs_move = False
+    if task_id and TasksCLI and current_status:
+        if target == "testing" and current_status == "PROGRESSING":
+            needs_move = True
+        elif target == "staging" and current_status == "REVIEW":
+            needs_move = True
         elif target == "main":
-            cli.move(task_id, "DONE")
+            needs_move = True
 
-    if target != "main" and not get_skip_push():
-        if prompt_yes_no(f"Continue promotion from {target.upper()} to next stage?"):
-            cmd_promote(target, original_task_id=task_id)
+    if src not in PIPELINE or needs_move:
+        cmd_merge(src, target)
+
+    if task_id and TasksCLI and needs_move:
+        cli = TasksCLI(quiet=True, dev=FLAGS["dev"], yes=FLAGS["yes"])  # type: ignore[reportOptionalCall]
+        new_status = None
+        if target == "testing":
+            new_status = "TESTING"
+        elif target == "staging":
+            new_status = "STAGING"
+        elif target == "main":
+            new_status = "DONE"
+        if new_status:
+            status = cli.find_task(task_id)[1]
+            if status != new_status:
+                cli.move(task_id, new_status)
+
+    log(f"✅ Successfully promoted {src.upper()} → {target.upper()}")
+
+    if target != "main" and original_task_id is not None:
+        log(
+            f"Task {task_id} moved to {target.upper()}. Run 'repo promote {src}' to continue to next stage."
+        )
 
 
 def cmd_demote(task_id_input, target_state):
     from tasks_ai.file_manager import FM
 
     task_id = task_id_input.split("-")[0]
-    cli = TasksCLI(quiet=True, dev=FLAGS["dev"])  # type: ignore[reportOptionalCall]
+    cli = TasksCLI(quiet=True, dev=FLAGS["dev"], yes=FLAGS["yes"])  # type: ignore[reportOptionalCall]
     path, _ = cli.find_task(task_id)
     task = FM.load(path)
     branch = task.metadata.get("Br")
@@ -428,7 +375,7 @@ def main():
         print(result.stdout)
     elif cmd == "branch":
         if len(args) < 2:
-            error("❌ BRANCH: SPECIFY list, create, OR delete! 🔨")
+            error("branch: specify list, create, or delete")
         elif args[1] == "list":
             result = run(["git", "branch"], capture=True)
             print(result.stdout)
@@ -439,7 +386,7 @@ def main():
         elif args[1] == "exists" and len(args) > 2:
             sys.exit(0 if branch_exists(args[2]) else 1)
         else:
-            error("❌ BRANCH: UNKNOWN SUBCOMMAND! 🔨")
+            error("branch: unknown subcommand")
     else:
         error(f"Unknown: {cmd}")
 

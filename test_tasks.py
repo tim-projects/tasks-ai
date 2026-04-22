@@ -13,7 +13,6 @@ from tasks_ai.file_manager import FM
 
 class TestTasksAI(unittest.TestCase):
     def setUp(self):
-        self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.test_dir = tempfile.mkdtemp()
         self.repo_dir = os.path.join(self.test_dir, "repo")
         os.makedirs(self.repo_dir)
@@ -22,25 +21,16 @@ class TestTasksAI(unittest.TestCase):
             ["git", "config", "user.email", "test@example.com"], cwd=self.repo_dir
         )
         subprocess.run(["git", "config", "user.name", "Test User"], cwd=self.repo_dir)
-
-        # Setup .gitignore as a file, not tracked in git to avoid issues
-        with open(os.path.join(self.repo_dir, ".gitignore"), "w") as f:
-            f.write("check.py\nrepo.py\n.tasks/\n")
-
         with open(os.path.join(self.repo_dir, "README.md"), "w") as f:
             f.write("# Test Repo")
         subprocess.run(["git", "add", "README.md"], cwd=self.repo_dir)
         subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=self.repo_dir)
         # Compute absolute path to tasks.py based on this file's location
         self.script_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hammer"
+            os.path.dirname(os.path.abspath(__file__)), "tasks.py"
         )
 
-<<<<<<< HEAD:tests/test_tasks.py
-        # Setup config - use skip_push to avoid remote operations
-=======
         # Setup config
->>>>>>> testing:test_tasks.py
         config_dir = os.path.join(self.repo_dir, ".tasks")
         os.makedirs(config_dir, exist_ok=True)
         config_data = {
@@ -49,40 +39,23 @@ class TestTasksAI(unittest.TestCase):
                 "test": "/bin/true",
                 "type_check": "/bin/true",
                 "format": "/bin/true",
-<<<<<<< HEAD:tests/test_tasks.py
-                "skip_push": True,
-=======
->>>>>>> testing:test_tasks.py
             }
         }
         with open(os.path.join(config_dir, "config.yaml"), "w") as f:
             json.dump(config_data, f)
 
     def tearDown(self):
-        print(os.listdir(self.repo_dir))
         shutil.rmtree(self.test_dir)
 
     def run_cmd(self, args):
-        # Ensure essential files exist
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        shutil.copy(os.path.join(base_dir, "check.py"), self.repo_dir)
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        shutil.copy(os.path.join(base_dir, "repo.py"), self.repo_dir)
-        # Use skip_push in test config so no -y flag needed
         result = subprocess.run(
-            [sys.executable, self.script_path, "tasks", "-j", "--dev"] + args,
+            [sys.executable, self.script_path, "-j"] + args,
             cwd=self.repo_dir,
-            env={**os.environ, "TASKS_TESTING": "1"},
             capture_output=True,
             text=True,
         )
-        # Try to parse JSON, handling possible non-JSON output before it
-        output = result.stdout
-        json_start = output.find("{")
-        if json_start >= 0:
-            output = output[json_start:]
         try:
-            data = json.loads(output)
+            data = json.loads(result.stdout)
             if not data.get("success"):
                 print(f"CMD FAILED: tasks {' '.join(args)}", file=sys.stderr)
                 print(f"STDOUT: {result.stdout}", file=sys.stderr)
@@ -149,10 +122,10 @@ class TestTasksAI(unittest.TestCase):
 
         # Verify it moved from backlog to ready
         self.assertFalse(
-            os.path.exists(os.path.join("/tmp/.tasks", "backlog", issue_file))
+            os.path.exists(os.path.join(self.repo_dir, ".tasks", "backlog", issue_file))
         )
         self.assertTrue(
-            os.path.exists(os.path.join("/tmp/.tasks", "ready", issue_file))
+            os.path.exists(os.path.join(self.repo_dir, ".tasks", "ready", issue_file))
         )
 
         # Move task to READY
@@ -169,7 +142,7 @@ class TestTasksAI(unittest.TestCase):
         # Issue is currently in PROGRESSING (not finished)
         res = self.run_cmd(["move", task_file, "READY,PROGRESSING"])
         self.assertFalse(res["success"], res)
-        self.assertIn("blocked by", res.get("error", "").lower())
+        self.assertIn("Blocked by", res.get("error", ""))
 
         # Move issue through states
         for state in ["TESTING", "REVIEW", "STAGING", "DONE"]:
@@ -204,26 +177,23 @@ class TestTasksAI(unittest.TestCase):
                     ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
                 )
             elif state == "DONE":
-                # Create and merge branch to main before DONE (required by gate)
                 subprocess.run(
-                    ["git", "checkout", "-b", issue_file],
+                    ["git", "checkout", "-b", "staging"],
                     cwd=self.repo_dir,
                     capture_output=True,
                 )
                 subprocess.run(
-                    ["git", "commit", "--allow-empty", "-m", "Done"],
-                    cwd=self.repo_dir,
-                    capture_output=True,
+                    ["git", "merge", "testing"], cwd=self.repo_dir, capture_output=True
                 )
                 subprocess.run(
                     ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
                 )
                 subprocess.run(
-                    ["git", "merge", issue_file], cwd=self.repo_dir, capture_output=True
+                    ["git", "merge", "staging"], cwd=self.repo_dir, capture_output=True
                 )
                 # Complete checkboxes before DONE move (write to staging folder)
                 criteria_path = os.path.join(
-                    "/tmp/.tasks", "staging", issue_file, "criteria.md"
+                    self.repo_dir, ".tasks", "staging", issue_file, "criteria.md"
                 )
                 with open(criteria_path, "r") as f:
                     content = f.read()
@@ -234,7 +204,7 @@ class TestTasksAI(unittest.TestCase):
             # (write to staging folder - will be moved to done)
             if state == "DONE":
                 criteria_path = os.path.join(
-                    "/tmp/.tasks", "staging", issue_file, "criteria.md"
+                    self.repo_dir, ".tasks", "staging", issue_file, "criteria.md"
                 )
                 with open(criteria_path, "r") as f:
                     content = f.read()
@@ -314,26 +284,23 @@ class TestTasksAI(unittest.TestCase):
                     ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
                 )
             elif state == "DONE":
-                # Create and merge branch to main before DONE (required by gate)
                 subprocess.run(
-                    ["git", "checkout", "-b", branch],
+                    ["git", "checkout", "-b", "staging"],
                     cwd=self.repo_dir,
                     capture_output=True,
                 )
                 subprocess.run(
-                    ["git", "commit", "--allow-empty", "-m", "Done"],
-                    cwd=self.repo_dir,
-                    capture_output=True,
+                    ["git", "merge", "testing"], cwd=self.repo_dir, capture_output=True
                 )
                 subprocess.run(
                     ["git", "checkout", "main"], cwd=self.repo_dir, capture_output=True
                 )
                 subprocess.run(
-                    ["git", "merge", branch], cwd=self.repo_dir, capture_output=True
+                    ["git", "merge", "staging"], cwd=self.repo_dir, capture_output=True
                 )
                 # Complete checkboxes BEFORE DONE move (write to staging folder)
                 criteria_path = os.path.join(
-                    "/tmp/.tasks", "staging", file, "criteria.md"
+                    self.repo_dir, ".tasks", "staging", file, "criteria.md"
                 )
                 with open(criteria_path, "r") as f:
                     content = f.read()
@@ -343,7 +310,7 @@ class TestTasksAI(unittest.TestCase):
             # Complete checkboxes only when moving to DONE (write to staging folder)
             if state == "DONE":
                 criteria_path = os.path.join(
-                    "/tmp/.tasks", "staging", file, "criteria.md"
+                    self.repo_dir, ".tasks", "staging", file, "criteria.md"
                 )
                 with open(criteria_path, "r") as f:
                     content = f.read()
@@ -361,15 +328,19 @@ class TestTasksAI(unittest.TestCase):
             self.assertTrue(res["success"], f"Failed move to {state}: {res}")
 
         # Backdate log
-        log_path = os.path.join("/tmp/.tasks", "done", file, "activity.log")
+        log_path = os.path.join(self.repo_dir, ".tasks", "done", file, "activity.log")
         old_date = (datetime.now() - timedelta(days=8)).strftime("%y%m%d %H:%M")
         with open(log_path, "w") as f:
             f.write(f"- {old_date}: STAGING->DONE\n")
 
         res = self.run_cmd(["list"])
         self.assertIn(f"Auto-archiving: {file}", res["messages"], res)
-        self.assertTrue(os.path.exists(os.path.join("/tmp/.tasks", "archived", file)))
-        self.assertFalse(os.path.exists(os.path.join("/tmp/.tasks", "done", file)))
+        self.assertTrue(
+            os.path.exists(os.path.join(self.repo_dir, ".tasks", "archived", file))
+        )
+        self.assertFalse(
+            os.path.exists(os.path.join(self.repo_dir, ".tasks", "done", file))
+        )
 
     def test_testing_gate_blocks_when_no_new_changes(self):
         """Gate should prevent moving to TESTING if branch is clean and up-to-date with testing."""
@@ -466,12 +437,15 @@ class TestTasksAI(unittest.TestCase):
         )
         self.assertFalse(status_check.stdout.strip(), "Working tree should be clean")
 
-        # Attempt to move to TESTING: should succeed because branch is merged to testing
+        # Attempt to move to TESTING: should fail because no unstaged changes and no newer commits
         res = self.run_cmd(["move", task_file, "TESTING"])
-        self.assertTrue(
+        self.assertFalse(
             res["success"],
-            f"Move to TESTING should succeed when branch is merged: {res}",
+            f"Move to TESTING should have been blocked but succeeded: {res}",
         )
+        error_msg = res.get("error", "").lower()
+        self.assertIn("no unstaged", error_msg)
+        self.assertIn("no commits newer", error_msg)
 
         # Add an unstaged file; now move should succeed
         with open(work_file, "a") as f:
@@ -544,11 +518,16 @@ class TestTasksAI(unittest.TestCase):
         res = self.run_cmd(["move", task_file, "REVIEW"])
         self.assertTrue(res["success"], f"Move to REVIEW failed: {res}")
 
-        # Verify diff file exists in dev environment (/tmp/.tasks)
-        diff_path = os.path.join("/tmp/.tasks", "review", f"{branch}.patch")
+        # Verify diff file exists
+        diff_path = os.path.join(self.repo_dir, ".tasks", "review", f"{branch}.patch")
         self.assertTrue(
             os.path.exists(diff_path), f"Review diff not found at {diff_path}"
         )
+
+        # Diff should contain our commit message
+        with open(diff_path) as f:
+            content = f.read()
+        self.assertIn("new feature", content.lower())
 
     def test_review_to_staging_requires_regression_check(self):
         """Test REVIEW -> STAGING is blocked until --regression-check is used."""
@@ -674,7 +653,7 @@ class TestTasksAI(unittest.TestCase):
         self.run_cmd(["move", task_file, "REVIEW"])
 
         # Load task from review folder
-        review_task_path = os.path.join("/tmp/.tasks", "review", task_file)
+        review_task_path = os.path.join(self.repo_dir, ".tasks", "review", task_file)
         task = FM.load(review_task_path)
         self.assertFalse(
             task.metadata.get("Rc"), "Rc should be unset after entering REVIEW"
@@ -741,9 +720,12 @@ class TestTasksAI(unittest.TestCase):
         self.run_cmd(["modify", task_file, "--tests-passed"])
         self.run_cmd(["move", task_file, "REVIEW"])
 
-        # Diff should exist (may be empty if already merged to testing)
-        diff_path = os.path.join("/tmp/.tasks", "review", f"{branch}.patch")
+        # Diff should exist
+        diff_path = os.path.join(self.repo_dir, ".tasks", "review", f"{branch}.patch")
         self.assertTrue(os.path.exists(diff_path), "Initial diff should exist")
+        with open(diff_path) as f:
+            diff1 = f.read()
+        self.assertIn("initial", diff1.lower())
 
         # Move back to PROGRESSING (simulate finding regression)
         res = self.run_cmd(["move", task_file, "PROGRESSING"])
@@ -793,7 +775,7 @@ class TestTasksAI(unittest.TestCase):
         self.assertIn("Fix regression", diff2, "Diff should contain fix commit")
 
         # Verify Rc is reset
-        review_task_path = os.path.join("/tmp/.tasks", "review", task_file)
+        review_task_path = os.path.join(self.repo_dir, ".tasks", "review", task_file)
         task = FM.load(review_task_path)
         self.assertFalse(
             task.metadata.get("Rc"), "Rc should be reset when re-entering REVIEW"

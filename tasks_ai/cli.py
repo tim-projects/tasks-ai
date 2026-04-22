@@ -33,23 +33,17 @@ def get_terminal_width():
 
 
 class TasksCLI:
-    def __init__(self, as_json=False, command=None, quiet=False, dev=False):
+    def __init__(self, as_json=False, command=None, quiet=False, dev=False, yes=False):
         self.as_json = as_json
         self.quiet = quiet
         self.dev = dev
+        self.yes = yes
         self.output_messages = []
         self.root = self._get_git_root()
 
         # Determine tasks directory
-        # Priority: 1. TASKS_ROOT env var, 2. dev flag, 3. default
-        self.tasks_dir = TASKS_DIR  # default
-        tasks_root_env = os.environ.get("TASKS_ROOT")
-        if tasks_root_env:
-            self.tasks_dir = tasks_root_env
-            self.dev = True
-            if not os.path.exists(self.tasks_dir):
-                os.makedirs(self.tasks_dir, exist_ok=True)
-        elif dev:
+        self.tasks_dir = TASKS_DIR
+        if dev:
             self.tasks_dir = "/tmp/.tasks"
             if not os.path.exists(self.tasks_dir):
                 os.makedirs(self.tasks_dir, exist_ok=True)
@@ -201,7 +195,7 @@ class TasksCLI:
                 .strip()
             )
         except subprocess.CalledProcessError:
-            self.error("❌ NOT GIT REPO! HAMMER NEEDS GIT! 🔨")
+            self.error("Not a git repository.")
             sys.exit(1)
 
     def _run_git(self, args, cwd=None):
@@ -240,54 +234,6 @@ class TasksCLI:
                 self.log(f"Git: Added worktree at '{args[args.index('add') + 1]}'")
 
         return result
-
-    def _get_remote(self, cwd=None):
-        """Identify the primary git remote name (prefers config, then 'origin', then any available)."""
-        # Check for skip_push in config first
-        config_path = os.path.join(self.root, ".tasks", "config.yaml")
-        if os.path.exists(config_path):
-            try:
-                import yaml
-
-                with open(config_path) as f:
-                    config = yaml.safe_load(f) or {}
-                if config.get("repo", {}).get("skip_push"):
-                    return None
-            except Exception:
-                pass
-
-        # Check for configured remote in .tasks/config.yaml
-        if os.path.exists(config_path):
-            try:
-                import yaml
-
-                with open(config_path) as f:
-                    config = yaml.safe_load(f) or {}
-                remote = config.get("repo", {}).get("remote")
-                if remote:
-                    # Verify remote exists
-                    res = self._run_git(["remote", "get-url", remote], cwd=cwd)
-                    if res.returncode == 0:
-                        return remote
-            except ImportError:
-                pass
-            except Exception:
-                pass
-
-        # Check if 'origin' exists
-        res = self._run_git(["remote", "get-url", "origin"], cwd=cwd)
-        if res.returncode == 0:
-            return "origin"
-
-        # Fallback to the first remote listed
-        res = self._run_git(["remote"], cwd=cwd)
-        if res.returncode == 0 and res.stdout.strip():
-            remotes = res.stdout.strip().split("\n")
-            if "github" in remotes:
-                return "github"
-            return remotes[0]
-
-        return "origin"  # Final fallback
 
     def _generate_review_diff(self, task_path, branch):
         """Generate a unified diff patch for the task branch against main including unstaged changes."""
@@ -364,20 +310,11 @@ class TasksCLI:
         return result
 
     def _run_validation(self, fix=False):
-        if os.environ.get("TASKS_TESTING") == "1":
-            return
         check_path = os.path.join(self.root, "check.py")
         if not os.path.exists(check_path):
             return
-
-        cmd = [sys.executable, check_path, "lint"]
-        if fix:
-            cmd.append("--fix")
-        if self.dev:
-            cmd.append("--dev")
-
         result = subprocess.run(
-            cmd,
+            [sys.executable, check_path, "lint"] + (["--fix"] if fix else []),
             cwd=self.root,
             capture_output=True,
             text=True,
@@ -385,13 +322,11 @@ class TasksCLI:
         )
         if result.returncode != 0:
             self.error(
-                "❌ HAMMER SAY NO! VALIDATION BROKEN! FIX NOW! 🔨",
-                hint="RUN 'check lint' TO SEE ERRORS. HAMMER NO BYPASS TOOL!",
+                "Validation failed. Fix errors before proceeding.",
+                hint="Run 'check lint' to see errors. Do not bypass this tool.",
             )
 
     def _run_tests(self, fail_safe=False):
-        if os.environ.get("TASKS_TESTING") == "1":
-            return subprocess.CompletedProcess("", 0)
         check_path = os.path.join(self.root, "check.py")
         if not os.path.exists(check_path):
             return subprocess.CompletedProcess("", 0)
@@ -406,8 +341,8 @@ class TasksCLI:
             if fail_safe:
                 return result
             self.error(
-                "❌ TEST BREAK! HAMMER SAY NO! FIX NOW! 🔨",
-                hint="RUN 'check test' TO SEE FAILURES. HAMMER NO BYPASS TOOL!",
+                "Tests failed. Fix test failures before proceeding.",
+                hint="Run 'check test' to see failures. Do not bypass this tool.",
             )
         return result
 
@@ -465,7 +400,7 @@ class TasksCLI:
 
     def error(self, message, hint=None):
         if hint:
-            message = f"{message} | FIX: {hint}"
+            message = f"{message} | HINT: {hint}"
         if self.quiet:
             pass
         elif self.as_json:
@@ -480,7 +415,7 @@ class TasksCLI:
             )
             sys.exit(1)
         else:
-            print(f"❌ HAMMER SAY NO! FIX! 🔨 {message}", file=sys.stderr)
+            print(f"Error: {message}", file=sys.stderr)
             sys.exit(1)
 
     def finish(self, data=None):
@@ -547,13 +482,6 @@ class TasksCLI:
 
     def init(self):
         if self.dev:
-            # Preserve config.yaml if it exists
-            config_yaml = os.path.join(self.tasks_path, "config.yaml")
-            config_backup = None
-            if os.path.exists(config_yaml):
-                with open(config_yaml, "r") as f:
-                    config_backup = f.read()
-
             for folder in list(STATE_FOLDERS.values()):
                 p = os.path.join(self.tasks_path, folder)
                 if not os.path.exists(p):
@@ -585,11 +513,6 @@ class TasksCLI:
                     capture_output=True,
                 )
 
-            # Restore config.yaml if there was one
-            if config_backup:
-                with open(config_yaml, "w") as f:
-                    f.write(config_backup)
-
             self.log(f"Dev tasks initialized at {self.tasks_path}")
             self.finish()
             return
@@ -613,18 +536,7 @@ class TasksCLI:
         if not is_worktree:
             if os.path.exists(self.tasks_path):
                 if os.path.isdir(self.tasks_path):
-                    # Preserve config.yaml if it exists
-                    config_yaml = os.path.join(self.tasks_path, "config.yaml")
-                    config_backup = None
-                    if os.path.exists(config_yaml):
-                        with open(config_yaml, "r") as f:
-                            config_backup = f.read()
                     shutil.rmtree(self.tasks_path)
-                    # Restore config.yaml
-                    if config_backup:
-                        os.makedirs(self.tasks_path, exist_ok=True)
-                        with open(config_yaml, "w") as f:
-                            f.write(config_backup)
                 else:
                     os.remove(self.tasks_path)
             self._run_git(["worktree", "add", self.tasks_path, TASKS_BRANCH])
@@ -673,22 +585,35 @@ class TasksCLI:
 
     def save(self, branch="tasks"):
         if not os.path.exists(self.tasks_path):
-            self.error("❌ TASKS NOT INIT! RUN 'tasks init' FIRST! 🔨")
+            self.error("Tasks not initialized. Run 'tasks init' first.")
         remotes = self._run_git(["remote", "-v"], cwd=self.tasks_path)
         if not remotes.stdout.strip():
-            self.error("❌ NO REMOTE! ADD REMOTE TO .tasks FIRST! 🔨")
-        current = self._run_git(
-            ["rev-parse", "--abbrev-ref", "HEAD"], cwd=self.tasks_path
-        ).stdout.strip()
-        remote = self._get_remote(cwd=self.tasks_path)
-        push_result = self._run_git(
-            ["push", "-u", remote, f"{current}:refs/heads/{branch}"],
-            cwd=self.tasks_path,
-        )
-        if push_result.returncode != 0:
-            self.error(f"❌ PUSH FAIL! {push_result.stderr}! FIX NOW! 🔨")
-        self.log(f"Pushed {current} to {remote}/{branch}")
-        self.finish({"branch": branch, "remote": remote, "from_branch": current})
+            if self.dev or self.yes:
+                current = self._run_git(
+                    ["rev-parse", "--abbrev-ref", "HEAD"], cwd=self.tasks_path
+                ).stdout.strip()
+                mode = "--dev" if self.dev else "-y"
+                self.log(
+                    f"No remote configured - continuing in local-only mode ({mode})"
+                )
+                self.finish({"branch": branch, "remote": None, "from_branch": current})
+            else:
+                self.error(
+                    "No remote configured in .tasks.",
+                    hint="Set up a remote or use --dev / -y flag for local-only mode.",
+                )
+        else:
+            current = self._run_git(
+                ["rev-parse", "--abbrev-ref", "HEAD"], cwd=self.tasks_path
+            ).stdout.strip()
+            push_result = self._run_git(
+                ["push", "-u", "origin", f"{current}:refs/heads/{branch}"],
+                cwd=self.tasks_path,
+            )
+            if push_result.returncode != 0:
+                self.error(f"Failed to push to remote: {push_result.stderr}")
+            self.log(f"Pushed {current} to origin/{branch}")
+            self.finish({"branch": branch, "remote": "origin", "from_branch": current})
 
     def _append_log(self, task_path, entry):
         if not task_path:
@@ -757,10 +682,10 @@ class TasksCLI:
     def _get_next_id(self):
         counter_file = os.path.join(self.tasks_path, ".task_counter")
         if not os.path.exists(counter_file):
-            hint = "RUN 'tasks init' FIRST!"
+            hint = "Run 'tasks init' first."
             if self.dev:
-                hint = "DEV NOT INIT! RUN 'tasks --dev init' FIRST!"
-            self.error("❌ TASKS NOT INIT! 🔨", hint=hint)
+                hint = "Dev tasks not initialized. Run 'tasks --dev init' first."
+            self.error("Tasks not initialized.", hint=hint)
         with open(counter_file, "r+") as f:
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
             try:
@@ -790,7 +715,7 @@ class TasksCLI:
         repro=None,
     ):
         if len(title) < 10:
-            self.error("❌ TITLE WEAK! MIN 10 CHARS! 🔨")
+            self.error("Task title is too vague. Min 10 chars.")
         missing = []
         if not story:
             missing.append("--story")
@@ -804,7 +729,7 @@ class TasksCLI:
             missing.append("--repro")
         if missing:
             self.error(
-                f"❌ MISSING PARTS! ADD {', '.join(missing)}! NEED PROGRESSING ANYWAY! 🔨"
+                f"Missing required fields: {', '.join(missing)}. Task not created. These are required to move to PROGRESSING anyway."
             )
 
         MIN_LEN = 15
@@ -830,9 +755,7 @@ class TasksCLI:
             if len(repro_str.strip()) < MIN_LEN:
                 too_short.append(f"--repro (min {MIN_LEN} chars)")
         if too_short:
-            self.error(
-                f"❌ FIELDS TOO SHORT: {', '.join(too_short)}! HAMMER NEEDS MORE! 🔨"
-            )
+            self.error(f"Fields too short: {', '.join(too_short)}. Task not created.")
 
         if priority is not None:
             try:
@@ -840,14 +763,14 @@ class TasksCLI:
                 if not (1 <= p <= 9):
                     raise ValueError()
             except (ValueError, TypeError):
-                self.error("❌ PRIORITY WEAK! HAMMER WANTS 1-9! 🔨")
+                self.error("Priority must be a number between 1 and 9.")
 
         clean_title = re.sub(r"[^a-zA-Z0-9]+", "-", title.lower()).strip("-")
         numeric_id = self._get_next_id()
         task_id = f"{numeric_id}-{task_type}-{clean_title[:30]}".strip("-")
         task_dir = os.path.join(self.tasks_path, STATE_FOLDERS["BACKLOG"], task_id)
         if self.find_task(task_id)[0]:
-            self.error(f"❌ TASK {task_id} ALREADY EXISTS! HAMMER NO DUPLICATES! 🔨")
+            self.error(f"Task {task_id} exists.")
 
         for state, folder in STATE_FOLDERS.items():
             fp = os.path.join(self.tasks_path, folder)
@@ -859,7 +782,9 @@ class TasksCLI:
                 path = os.path.join(fp, item)
                 task = FM.load(path)
                 if task.metadata.get("Id") == numeric_id:
-                    self.error(f"❌ TASK {numeric_id} ALREADY EXISTS (IN {state})! 🔨")
+                    self.error(
+                        f"Task with Id {numeric_id} already exists (in {state})."
+                    )
 
         task = Task(
             metadata={
@@ -924,7 +849,7 @@ class TasksCLI:
                 }
             )
         except Exception as e:
-            self.error(f"❌ TASK CREATE FAIL! {e}! 🔨")
+            self.error(str(e))
 
     def modify(
         self,
@@ -956,7 +881,7 @@ class TasksCLI:
         updated = False
         if title:
             if len(title) < 10:
-                self.error("❌ TITLE WEAK! MIN 10 CHARS! 🔨")
+                self.error("Title too vague.")
             task.metadata["Ti"] = title
             updated = True
         if story:
@@ -1033,11 +958,7 @@ class TasksCLI:
                 f"Modified: [{task.metadata.get('Id', '')}] {tt} | {task.metadata.get('Ti', '')}"
             )
             tt, branch = self._parse_filename(os.path.basename(filepath))  # type: ignore[arg-type]
-            remote = self._get_remote()
-            if (
-                remote
-                and not self._run_git(["ls-remote", "--heads", remote, branch]).stdout
-            ):
+            if not self._run_git(["ls-remote", "--heads", "origin", branch]).stdout:
                 self._run_git(["checkout", "-b", branch], cwd=self.root)
             if not task.parts.get("story"):
                 self.log("Tip: Consider adding --story to document the user context.")
@@ -1060,10 +981,10 @@ class TasksCLI:
     def delete(self, filename, confirm=None):
         filepath, current_state = self.find_task(filename)
         if not filepath:
-            self.error(f"❌ TASK '{filename}' NOT FOUND! 🔨")
+            self.error(f"Task '{filename}' not found.")
 
         if not self._validate_path(filepath):
-            self.error(f"❌ BAD PATH! {filepath}! 🔨")
+            self.error(f"Invalid task path: {filepath}")
 
         filepath_str = cast(str, filepath)
         task = FM.load(filepath_str)
@@ -1096,8 +1017,8 @@ class TasksCLI:
         # If confirm provided, only delete if already in REJECTED state
         if current_state != "REJECTED":
             self.error(
-                f"❌ MUST BE REJECTED TO DELETE! CURRENT: {current_state}! 🔨",
-                hint="RUN 'tasks delete <id>' MOVE TO REJECTED, THEN CONFIRM!",
+                f"Task must be in REJECTED state to delete. Currently in {current_state}.",
+                hint="Use 'tasks delete <id>' first to move to REJECTED, then confirm.",
             )
 
         try:
@@ -1114,7 +1035,7 @@ class TasksCLI:
                 f"Deleted: [{task.metadata.get('Id', '')}] {tt} | {task.metadata.get('Ti', '')}"
             )
         except Exception as e:
-            self.error(f"❌ TASK DELETE FAIL! {e}! 🔨")
+            self.error(str(e))
         self.finish(
             {
                 "id": task.metadata.get("Id"),
@@ -1145,7 +1066,7 @@ class TasksCLI:
     def checkpoint(self, filename=None):
         filepath, task = self.get_active_task(filename)
         if not filepath or not task:
-            self.error("❌ NO ACTIVE TASK! START WORK OR PICK ONE! 🔨")
+            self.error("No active task.")
 
         # filepath is definitely not None here for pyright
         filepath_str = cast(str, filepath)
@@ -1262,13 +1183,13 @@ class TasksCLI:
         f1, _ = self.find_task(filename)
         f2, _ = self.find_task(blocked_by_filename)
         if not f1 or not f2:
-            self.error("❌ TASK NOT FOUND! 🔨")
+            self.error("Not found.")
 
         f1_str = cast(str, f1)
         f2_str = cast(str, f2)
 
         if os.path.abspath(f1_str) == os.path.abspath(f2_str):
-            self.error("❌ CANNOT LINK TO SELF! 🔨")
+            self.error("Cannot link a task to itself.")
 
         f1_fname = os.path.basename(f1_str)
         f2_fname = os.path.basename(f2_str)
@@ -1289,8 +1210,8 @@ class TasksCLI:
         # Check for circular dependency
         if self._has_path(b_id, task_id_num):
             self.error(
-                f"❌ CIRCULAR DEPENDENCY! LINK {filename}->{blocked_by_filename} CREATE CYCLE! "
-                f"TASK {b_id} ALREADY DEPEND ON {task_id_num}! 🔨"
+                f"Circular dependency detected: linking '{filename}' -> '{blocked_by_filename}' "
+                f"would create a cycle. Task {b_id} already depends on task {task_id_num}."
             )
 
         if b_name not in bl:
@@ -1320,8 +1241,8 @@ class TasksCLI:
         filepath, current_state_from_folder = self.find_task(filename)
         if not filepath:
             self.error(
-                f"❌ TASK '{filename}' NOT FOUND! 🔨",
-                hint="RUN 'tasks list' TO SEE ALL TASK FILENAMES/IDS!",
+                f"Task '{filename}' not found.",
+                hint="Use 'tasks list' to see all available task filenames/IDs.",
             )
         task = FM.load(filepath)
         task_id = os.path.basename(filepath).rsplit(".", 1)[0]
@@ -1334,8 +1255,8 @@ class TasksCLI:
             for s in statuses:
                 if s not in STATE_FOLDERS:
                     self.error(
-                        f"❌ INVALID STATUS '{s}' IN SEQUENCE! 🔨",
-                        hint=f"VALID: {', '.join(STATE_FOLDERS.keys())}",
+                        f"Invalid status '{s}' in multi-move sequence.",
+                        hint=f"Valid statuses are: {', '.join(STATE_FOLDERS.keys())}",
                     )
             current_state = current_state_from_folder
             for i, target in enumerate(statuses):
@@ -1344,8 +1265,8 @@ class TasksCLI:
                     and current_state != target
                 ):
                     self.error(
-                        f"❌ FORBIDDEN! {current_state} -> {target} NOT ALLOWED! 🔨",
-                        hint=f"ALLOWED FROM {current_state}: {', '.join(ALLOWED_TRANSITIONS.get(current_state, []))}. HAMMER NO BYPASS TOOL!",
+                        f"Forbidden transition: {current_state} -> {target}",
+                        hint=f"Allowed transitions from {current_state} are: {', '.join(ALLOWED_TRANSITIONS.get(current_state, []))}. Do not bypass this tool.",
                     )
                 if target == "PROGRESSING":
                     # Check if branch exists locally and restore from remote if needed
@@ -1353,20 +1274,20 @@ class TasksCLI:
                     _, branch = self._parse_filename(fname)
                     branch_exists = self._run_git(["rev-parse", branch]).returncode == 0
                     if not branch_exists:
-                        remote = self._get_remote()
                         has_origin = (
-                            self._run_git(["remote", "get-url", remote]).returncode == 0
+                            self._run_git(["remote", "get-url", "origin"]).returncode
+                            == 0
                         )
                         if has_origin:
                             remote_check = self._run_git(
-                                ["ls-remote", "--heads", remote, branch]
+                                ["ls-remote", "--heads", "origin", branch]
                             )
                             if remote_check.stdout.strip():
                                 self.log(
                                     f"Branch '{branch}' not found locally. Restoring from remote..."
                                 )
                                 self._run_git(
-                                    ["checkout", "-b", branch, f"{remote}/{branch}"],
+                                    ["checkout", "-b", branch, f"origin/{branch}"],
                                     cwd=self.root,
                                 )
                                 self.log(
@@ -1380,7 +1301,7 @@ class TasksCLI:
                         _, bs = self.find_task(str(b))
                         if bs != "ARCHIVED":
                             self.error(
-                                f"❌ BLOCKED BY {b}! ARCHIVE BLOCKER FIRST! HAMMER NO BYPASS TOOL! 🔨"
+                                f"Blocked by {b}. Blocker must be ARCHIVED first. Do not bypass this tool."
                             )
                 try:
                     task = self._perform_move(task, current_state, target, filepath)
@@ -1392,7 +1313,7 @@ class TasksCLI:
                     )
                     current_state = target
                 except Exception as e:
-                    self.error(f"❌ MOVE FAIL AT {target}: {e}! 🔨")
+                    self.error(f"Move failed at step {target}: {e}")
 
             final_status = statuses[-1]
             self.log(f"Moved: [{task_id_num}] {tt} | {title} -> {final_status}")
@@ -1418,7 +1339,7 @@ class TasksCLI:
 
     def _perform_move(self, task, current_state, new_status, filepath):
         if not filepath:
-            self.error("❌ INVALID TASK PATH! 🔨")
+            self.error("Invalid task path.")
         filepath_str = cast(str, filepath)
         self._sync_task_content(filepath_str, task, is_final=(new_status == "ARCHIVED"))
         task.metadata.pop("St", None)
@@ -1439,19 +1360,19 @@ class TasksCLI:
         filepath, current_state = self.find_task(filename)
         if not filepath:
             self.error(
-                f"❌ TASK '{filename}' NOT FOUND! 🔨",
-                hint="RUN 'tasks list' TO SEE ALL TASK FILENAMES/IDS!",
+                f"Task '{filename}' not found.",
+                hint="Use 'tasks list' to see all available task filenames/IDs.",
             )
         filepath_str = cast(str, filepath)
 
         if current_state == new_status:
             return
         if new_status not in ALLOWED_TRANSITIONS.get(current_state, []) and not force:
-            hint = f"ALLOWED FROM {current_state}: {', '.join(ALLOWED_TRANSITIONS.get(current_state, []))}. HAMMER NO BYPASS TOOL!"
+            hint = f"Allowed transitions from {current_state} are: {', '.join(ALLOWED_TRANSITIONS.get(current_state, []))}. Do not bypass this tool."
             if current_state == "REJECTED" and new_status == "ARCHIVED":
-                hint += " RUN 'tasks delete <id>' PERMANENT REMOVE!"
+                hint += " Use 'tasks delete <id>' to permanently remove the task."
             self.error(
-                f"❌ FORBIDDEN! {current_state} -> {new_status} NOT ALLOWED! 🔨",
+                f"Forbidden transition: {current_state} -> {new_status}",
                 hint=hint,
             )
 
@@ -1460,8 +1381,8 @@ class TasksCLI:
             task = FM.load(filepath_str)
             if not task.metadata.get("Tp", False):
                 self.error(
-                    "❌ TESTS NOT PASSED! HAMMER SAY NO! 🔨",
-                    hint="RUN 'tasks modify <id> --tests-passed' MARK TESTS PASSED! HAMMER NO BYPASS TOOL!",
+                    "Tests must be passed before moving to REVIEW.",
+                    hint="Run 'tasks modify <id> --tests-passed' to mark tests as passed. Do not bypass this tool.",
                 )
             self._run_validation()
             self._run_tests()
@@ -1551,8 +1472,8 @@ class TasksCLI:
                     ):
                         missing.append("repro")
                 self.error(
-                    f"❌ TASK LACKS CONTENT TO LEAVE BACKLOG! MISSING: {', '.join(missing)}! 🔨",
-                    hint='RUN \'tasks modify <id> --story "..." --tech "..." --criteria "..." --plan "..."\' ADD DETAILS! FOR ISSUES, ADD --repro! HAMMER NO BYPASS TOOL!',
+                    f"Task lacks required content to leave BACKLOG. Missing or incomplete: {', '.join(missing)}",
+                    hint='Use \'tasks modify <id> --story "..." --tech "..." --criteria "..." --plan "..."\' to add details. For issues, also add --repro. Do not bypass this tool.',
                 )
 
         if new_status == "PROGRESSING":
@@ -1563,7 +1484,7 @@ class TasksCLI:
                 _, bs = self.find_task(str(b))
                 if bs != "ARCHIVED":
                     self.error(
-                        f"❌ BLOCKED BY {b}! ARCHIVE BLOCKER FIRST! HAMMER NO BYPASS TOOL! 🔨"
+                        f"Blocked by {b}. Blocker must be ARCHIVED first. Do not bypass this tool."
                     )
 
             missing = []
@@ -1598,8 +1519,8 @@ class TasksCLI:
 
             if missing:
                 self.error(
-                    f"❌ TASK LACKS DETAIL FOR PROGRESSING! MISSING: {', '.join(missing)}! 🔨",
-                    hint='RUN \'tasks show <id>\' SEE CONTENT, THEN \'tasks modify <id> --story "..." --tech "..." --criteria "..." --plan "..."\' ADD PROPER DETAILS! FOR ISSUES, ADD --repro! RUN \'tasks modify --help\' FOR SYNTAX! HAMMER NO BYPASS TOOL!',
+                    f"Task lacks sufficient detail to move to PROGRESSING. Missing or incomplete: {', '.join(missing)}",
+                    hint='Use \'tasks show <id>\' to see current content, then \'tasks modify <id> --story "..." --tech "..." --criteria "..." --plan "..."\' to add proper details. For issues, also add --repro. Run \'tasks modify --help\' for syntax help. Do not bypass this tool.',
                 )
 
         tt, branch = self._parse_filename(fname)
@@ -1616,17 +1537,16 @@ class TasksCLI:
 
         # Auto-restore branch from remote if moving to PROGRESSING and branch is missing
         if new_status == "PROGRESSING" and not branch_sha:
-            remote = self._get_remote()
-            has_origin = self._run_git(["remote", "get-url", remote]).returncode == 0
+            has_origin = self._run_git(["remote", "get-url", "origin"]).returncode == 0
             if has_origin:
                 # Check if branch exists on remote
-                remote_check = self._run_git(["ls-remote", "--heads", remote, branch])
+                remote_check = self._run_git(["ls-remote", "--heads", "origin", branch])
                 if remote_check.stdout.strip():
                     self.log(
                         f"Branch '{branch}' not found locally. Restoring from remote..."
                     )
                     self._run_git(
-                        ["checkout", "-b", branch, f"{remote}/{branch}"], cwd=self.root
+                        ["checkout", "-b", branch, f"origin/{branch}"], cwd=self.root
                     )
                     branch_sha = self._run_git(["rev-parse", branch]).stdout.strip()
                     self.log(
@@ -1634,17 +1554,14 @@ class TasksCLI:
                     )
 
         if not force:
-            remote = self._get_remote()
-            has_origin = (
-                remote and self._run_git(["remote", "get-url", remote]).returncode == 0
-            )
+            has_origin = self._run_git(["remote", "get-url", "origin"]).returncode == 0
             if new_status in ("REVIEW", "STAGING", "DONE", "ARCHIVED"):
                 if has_origin:
                     if not self._run_git(
-                        ["ls-remote", "--heads", remote, branch]
+                        ["ls-remote", "--heads", "origin", branch]
                     ).stdout:
                         self.error(
-                            f"❌ BRANCH '{branch}' NOT PUSHED TO REMOTE! PUSH AND TRY AGAIN! HAMMER NO BYPASS TOOL! 🔨",
+                            f"Branch '{branch}' not pushed to remote. Push and try again. Do not bypass this tool.",
                         )
 
             # Gate for TESTING: ensure branch has changes not yet in testing
@@ -1694,16 +1611,10 @@ class TasksCLI:
                     newer_than_testing = True
 
                 if not has_unstaged and not newer_than_testing:
-                    merge_base = self._run_git(
-                        ["merge-base", branch_tip_sha, testing_sha],
-                        cwd=self.root,
-                    ).stdout.strip()
-                    testing_contains_branch = merge_base == testing_sha
-                    if not testing_contains_branch:
-                        self.error(
-                            f"❌ BRANCH '{branch}' NO UNSTAGED CHANGES AND NO COMMITS NEWER THAN TESTING! "
-                            f"MAKE PROGRESS BEFORE TESTING! HAMMER NO BYPASS TOOL! 🔨",
-                        )
+                    self.error(
+                        f"Branch '{branch}' has no unstaged file changes and no commits newer than testing. "
+                        f"Make some progress before moving to testing. Do not bypass this tool."
+                    )
 
             if new_status == "REVIEW":
                 merge_base = self._run_git(
@@ -1717,7 +1628,7 @@ class TasksCLI:
                 )
                 if not testing_sha or merge_base != testing_sha:
                     self.error(
-                        f"❌ BRANCH '{branch}' NOT MERGED TO TESTING! MERGE TO TESTING FIRST! HAMMER NO BYPASS TOOL! 🔨",
+                        f"Branch '{branch}' not merged to testing. Merge to testing first. Do not bypass this tool.",
                     )
 
             if new_status == "STAGING":
@@ -1752,13 +1663,12 @@ class TasksCLI:
                 if not branch_commit and branch_exists:
                     branch_commit = self._run_git(["rev-parse", branch]).stdout.strip()
                 if not branch_commit:
-                    remote = self._get_remote()
                     if self._run_git(
-                        ["ls-remote", "--heads", remote, branch]
+                        ["ls-remote", "--heads", "origin", branch]
                     ).stdout.strip():
-                        self._run_git(["fetch", remote, branch], cwd=self.root)
+                        self._run_git(["fetch", "origin", branch], cwd=self.root)
                         branch_commit = self._run_git(
-                            ["rev-parse", f"{remote}/{branch}"]
+                            ["rev-parse", f"origin/{branch}"]
                         ).stdout.strip()
                 if not branch_commit:
                     branch_commit = main_sha
@@ -1772,15 +1682,13 @@ class TasksCLI:
                     )
                     if not is_ancestor:
                         self.error(
-                            f"❌ BRANCH '{branch}' NOT MERGED TO MAIN! MERGE TO MAIN FIRST! OR MOVE TO REJECTED! HAMMER NO BYPASS TOOL! 🔨",
+                            f"Branch '{branch}' not merged to main. Merge to main first. Alternatively, move to REJECTED. Do not bypass this tool.",
                         )
                 if yes:
                     # Only delete local branch if task was in DONE state (completed full pipeline)
                     # Keep branch for potential restoration if rejected or archived before DONE
                     if current_state == "DONE":
-                        remote = self._get_remote()
-                        if remote:
-                            self._run_git(["push", remote, branch], cwd=self.root)
+                        self._run_git(["push", "origin", branch], cwd=self.root)
                         self._run_git(["branch", "-d", branch], cwd=self.root)
                 else:
                     if not self.as_json:
@@ -1800,13 +1708,13 @@ class TasksCLI:
 
         if new_status == "ARCHIVED" and self._has_incomplete_checkboxes(filepath):
             self.error(
-                "❌ CANNOT ARCHIVE! CONTAINS UNFINISHED CHECKBOXES (- [ ])! 🔨",
-                hint="EDIT .tasks/staging/<task>/criteria.md CHANGE '- [ ]' TO '- [x]' FOR COMPLETED ITEMS! OR RUN: sed -i 's/- \\[ \\]/- [x]/g' .tasks/staging/<task>/criteria.md",
+                "Cannot archive task: contains unfinished checkboxes (- [ ])",
+                hint="Edit .tasks/staging/<task>/criteria.md and change '- [ ]' to '- [x]' for completed items, or use: sed -i 's/- \\[ \\]/- [x]/g' .tasks/staging/<task>/criteria.md",
             )
         if new_status == "DONE" and self._has_incomplete_checkboxes(filepath):
             self.error(
-                f"❌ CANNOT MOVE TO {new_status}! CONTAINS UNFINISHED CHECKBOXES (- [ ])! 🔨",
-                hint="EDIT .tasks/staging/<task>/criteria.md CHANGE '- [ ]' TO '- [x]' FOR COMPLETED ITEMS! OR RUN: sed -i 's/- \\[ \\]/- [x]/g' .tasks/staging/<task>/criteria.md",
+                f"Cannot move to {new_status}: contains unfinished checkboxes (- [ ])",
+                hint="Edit .tasks/staging/<task>/criteria.md and change '- [ ]' to '- [x]' for completed items, or use: sed -i 's/- \\[ \\]/- [x]/g' .tasks/staging/<task>/criteria.md",
             )
 
         # Regression check gate: REVIEW/TESTING -> STAGING/DONE/ARCHIVED requires Rc to be set
@@ -1818,8 +1726,8 @@ class TasksCLI:
             task = FM.load(filepath_str)
             if not task.metadata.get("Rc"):
                 self.error(
-                    f"❌ CANNOT MOVE TO {new_status}! REGRESSION CHECK NOT PASSED (Rc FLAG NOT SET)! 🔨",
-                    hint="IF CODE CHANGE, MOVE TO REVIEW, AUDIT diff.patch AT .tasks/review/<task_id>/diff.patch, THEN RUN 'tasks modify <id> --regression-check' TO CONFIRM!",
+                    f"Cannot move to {new_status}: regression check not passed (Rc flag not set).",
+                    hint="If this is a code change, please move to REVIEW, audit the diff at .tasks/review/<task_id>/diff.patch, then run 'tasks modify <id> --regression-check' to confirm.",
                 )
 
                 # Sync and Reset for regression states
@@ -1853,22 +1761,17 @@ class TasksCLI:
                 )
 
         # Trigger automatic promotion for TESTING
-        if new_status == "TESTING":
+        # File must be moved FIRST so cmd_promote sees the task already in TESTING
+        if new_status == "TESTING" and current_state == "PROGRESSING":
             self.log("Automatically promoting to testing branch...")
-            from repo import cmd_promote
-
-            try:
-                cmd_promote(branch)
-            except Exception as e:
-                self.error(f"❌ PROMOTION FAIL! {e}! 🔨")
 
         # Regression check enforcement for ARCHIVED
         if new_status == "ARCHIVED":
             task = FM.load(filepath_str)
             if not task.metadata.get("Rc"):
                 self.error(
-                    "❌ CANNOT MOVE TO ARCHIVED! REGRESSION CHECK NOT PASSED (Rc FLAG NOT SET)! 🔨",
-                    hint="PERFORM REGRESSION REVIEW AND RUN 'tasks modify <id> --regression-check' BEFORE ARCHIVING!",
+                    "Cannot move to ARCHIVED: regression check not passed (Rc flag not set).",
+                    hint="Ensure you have performed a regression review and run 'tasks modify <id> --regression-check' before archiving.",
                 )
 
         self._sync_task_content(filepath, task, is_final=(new_status == "ARCHIVED"))
@@ -1886,6 +1789,20 @@ class TasksCLI:
 
             self._atomic_write(new_filepath, task)
             self._append_log(new_filepath, f"{current_state}->{new_status}")
+
+            # NOW call cmd_promote - task is already in TESTING so no recursive call
+            if new_status == "TESTING":
+                from repo import cmd_promote, FLAGS
+
+                FLAGS["yes"] = yes
+                FLAGS["quiet"] = self.quiet
+                FLAGS["json"] = True
+                FLAGS["dev"] = self.dev
+
+                try:
+                    cmd_promote(branch)
+                except Exception as e:
+                    self.error(f"Promotion failed: {e}")
             if new_status == "ARCHIVED":
                 task_id = task.metadata.get("Id", "")
                 title = task.metadata.get("Ti", "")
@@ -1939,7 +1856,7 @@ class TasksCLI:
     def current(self, filename=None):
         filepath, task = self.get_active_task(filename)
         if not filepath or not task:
-            self.error("❌ NO ACTIVE TASK! START WORK OR PICK ONE! 🔨")
+            self.error("No active task.")
 
         # filepath is definitely not None here for pyright
         filepath_str = cast(str, filepath)
@@ -1983,8 +1900,8 @@ class TasksCLI:
         filepath, _ = self.find_task(filename)
         if not filepath:
             self.error(
-                f"❌ TASK '{filename}' NOT FOUND! 🔨",
-                hint="RUN 'tasks list' TO SEE AVAILABLE TASK IDS!",
+                f"Task '{filename}' not found.",
+                hint="Use 'tasks list' to see available task Ids.",
             )
 
         # filepath is definitely not None here for pyright
@@ -2032,8 +1949,7 @@ class TasksCLI:
                     print(f"## {title}\n{content}")
                 else:
                     self.error(
-                        f"❌ UNKNOWN SECTION '{section}'! 🔨",
-                        hint=f"VALID: {', '.join(section_map.keys())}",
+                        f"Unknown section '{section}'. Valid sections: {', '.join(section_map.keys())}"
                     )
             else:
                 print(
@@ -2054,7 +1970,7 @@ class TasksCLI:
 
     def list(self, show_all=False):
         if not os.path.exists(self.tasks_path):
-            self.error("❌ TASKS NOT INIT! RUN 'tasks init' FIRST! 🔨")
+            self.error("Init required.")
         all_data = {}
         seen = set()
         for state, folder in STATE_FOLDERS.items():
@@ -2320,24 +2236,23 @@ class TasksCLI:
         filepath, state = self.find_task(filename)
         if not filepath:
             self.error(
-                f"❌ TASK '{filename}' NOT FOUND! 🔨",
-                hint="RUN 'tasks list' TO SEE AVAILABLE TASK IDS AND FILENAMES!",
+                f"Task '{filename}' not found.",
+                hint="Use 'tasks list' to see available task Ids and filenames.",
             )
         task = FM.load(filepath)
         task_id = os.path.basename(filepath).rsplit(".", 1)[0]
         title = task.metadata.get("Ti", "")
         branch = task_id
 
-        # Check if remote exists
-        remote = self._get_remote()
-        has_origin = self._run_git(["remote", "get-url", remote]).returncode == 0
+        # Check if remote 'origin' exists
+        has_origin = self._run_git(["remote", "get-url", "origin"]).returncode == 0
         if has_origin:
-            if self._run_git(["ls-remote", "--heads", remote, branch]).stdout:
+            if self._run_git(["ls-remote", "--heads", "origin", branch]).stdout:
                 return
             if not self.as_json:
                 print(f"Branch: {branch} (no longer exists in remote)")
         else:
-            # If no remote, check if local branch exists
+            # If no origin, check if local branch exists
             has_local = self._run_git(["rev-parse", "--verify", branch]).returncode == 0
             if has_local:
                 return
@@ -2412,8 +2327,7 @@ class TasksCLI:
         cleaned = []
         archived = []
         pending_archive = []
-        remote = self._get_remote()
-        has_origin = self._run_git(["remote", "get-url", remote]).returncode == 0
+        has_origin = self._run_git(["remote", "get-url", "origin"]).returncode == 0
 
         for branch in branches.splitlines():
             branch = branch.strip()
@@ -2445,7 +2359,7 @@ class TasksCLI:
                     )
                     if not dry_run:
                         if has_origin:
-                            self._run_git(["push", remote, branch], cwd=self.root)
+                            self._run_git(["push", "origin", branch], cwd=self.root)
                         self._run_git(["branch", "-D", branch], cwd=self.root)
                     cleaned.append(branch)
                     continue
@@ -2463,14 +2377,14 @@ class TasksCLI:
 
             # Check branch was pushed to remote before cleaning up
             if has_origin:
-                remote_check = self._run_git(["ls-remote", "--heads", remote, branch])
+                remote_check = self._run_git(["ls-remote", "--heads", "origin", branch])
                 if not remote_check.stdout.strip():
                     pending_archive.append(f"{branch} (not pushed to remote)")
                     continue
 
             if not dry_run:
                 if has_origin:
-                    self._run_git(["push", remote, branch], cwd=self.root)
+                    self._run_git(["push", "origin", branch], cwd=self.root)
                 self._run_git(["branch", "-D", branch], cwd=self.root)
 
             cleaned.append(branch)
@@ -2529,7 +2443,7 @@ class TasksCLI:
                 with open(config_path, "w") as f:
                     yaml.safe_dump(cfg, f)
             except Exception as e:
-                self.error(f"❌ CONFIG SAVE FAIL! {e}! 🔨")
+                self.error(f"Failed to save config: {e}")
 
         if action == "detect":
             detected = self._detect_tools()
@@ -2567,18 +2481,18 @@ class TasksCLI:
                 print("\nRun 'config detect' to auto-detect project tools.")
         elif action == "get":
             if not key:
-                self.error("❌ MISSING CONFIG KEY! 🔨")
+                self.error("Missing config key.")
             if self.as_json:
                 self.finish({"key": key, "value": cfg.get(key)})
             else:
                 print(cfg.get(key, ""))
         elif action == "set":
             if not key or value is None:
-                self.error("❌ MISSING CONFIG KEY OR VALUE! 🔨")
+                self.error("Missing config key or value.")
             if key not in ALLOWED_CONFIG_KEYS:
                 self.error(
-                    f"❌ INVALID CONFIG KEY '{key}'! 🔨",
-                    hint=f"ALLOWED: {', '.join(sorted(ALLOWED_CONFIG_KEYS))}! RUN 'tasks config detect' AUTO-DETECT TOOLS!",
+                    f"Invalid config key '{key}'.",
+                    hint=f"Allowed keys: {', '.join(sorted(ALLOWED_CONFIG_KEYS))}. Use 'tasks config detect' to auto-detect tools.",
                 )
             cfg[key] = value
             save_config(cfg)
@@ -2598,24 +2512,7 @@ class TasksCLI:
 
     def _detect_tools(self):
         """Detect project type and suggest/create config."""
-        import shutil
-
         detected = {}
-        found_tools = {
-            t: shutil.which(t)
-            for t in [
-                "ruff",
-                "pytest",
-                "pyright",
-                "pylint",
-                "mypy",
-                "prettier",
-                "rustfmt",
-                "golangci-lint",
-                "eslint",
-            ]
-            if shutil.which(t)
-        }
 
         if os.path.exists("package.json"):
             detected["package_manager"] = "npm"
@@ -2658,7 +2555,7 @@ class TasksCLI:
 
         for file, tool in lint_files.items():
             if os.path.exists(file):
-                detected["lint"] = found_tools.get(tool, tool)
+                detected["lint"] = tool
                 break
 
         type_check_files = {
@@ -2669,11 +2566,11 @@ class TasksCLI:
 
         for file, tool in type_check_files.items():
             if os.path.exists(file):
-                detected["type_check"] = found_tools.get(tool, tool)
+                detected["type_check"] = tool
                 break
 
         if os.path.exists("pytest.ini") or os.path.exists("pyproject.toml"):
-            detected["test"] = found_tools.get("pytest", "pytest")
+            detected["test"] = "pytest"
         elif os.path.exists("go.mod"):
             detected["test"] = "go test"
         elif os.path.exists("Cargo.toml"):
@@ -2688,8 +2585,30 @@ class TasksCLI:
 
         for file, tool in format_files.items():
             if os.path.exists(file):
-                detected["format"] = found_tools.get(tool, tool)
+                detected["format"] = tool
                 break
+
+        if not self.as_json:
+            print("Detected tools:")
+            for k, v in detected.items():
+                print(f"  {k}: {v}")
+
+            if detected:
+                print("\nWould you like to save this configuration?")
+                print(
+                    "Run: tasks config set repo.lint " + detected.get("lint", "<tool>")
+                )
+                print(
+                    "      tasks config set repo.type_check "
+                    + detected.get("type_check", "<tool>")
+                )
+                print(
+                    "      tasks config set repo.test " + detected.get("test", "<tool>")
+                )
+                print(
+                    "      tasks config set repo.format "
+                    + detected.get("format", "<tool>")
+                )
 
         return detected
 
@@ -2729,7 +2648,7 @@ class TasksCLI:
         root_str = cast(str, self.root)
         check_py = os.path.join(root_str, "check.py")
         if not os.path.exists(check_py):
-            self.error("❌ check.py NOT FOUND IN PROJECT ROOT! 🔨")
+            self.error("check.py not found in project root.")
             return 1
 
         cmd = [sys.executable, check_py, tool_name or "all"]
@@ -2737,8 +2656,6 @@ class TasksCLI:
             cmd.append("--fix")
         if self.as_json:
             cmd.append("--json")
-        if self.dev:
-            cmd.append("--dev")
 
         # Run check.py and capture output to pass it through TasksCLI's finish/error
         result = subprocess.run(cmd, cwd=self.root, capture_output=True, text=True)
@@ -2754,7 +2671,7 @@ class TasksCLI:
                     sys.exit(1)
             except json.JSONDecodeError:
                 self.error(
-                    f"❌ VALIDATION FAIL! EXIT CODE {result.returncode}\n{result.stdout}\n{result.stderr}! 🔨"
+                    f"Validation failed with exit code {result.returncode}\n{result.stdout}\n{result.stderr}"
                 )
         else:
             # In plain mode, check.py prints directly to stdout/stderr
@@ -2771,8 +2688,8 @@ class TasksCLI:
         filepath, current_state = self.find_task(filename)
         if not filepath:
             self.error(
-                f"❌ TASK '{filename}' NOT FOUND! 🔨",
-                hint="RUN 'tasks list' TO SEE ALL TASK FILENAMES/IDS!",
+                f"Task '{filename}' not found.",
+                hint="Use 'tasks list' to see all available task filenames/IDs.",
             )
 
         filepath_str = cast(str, filepath)
@@ -2804,7 +2721,7 @@ class TasksCLI:
                 break
 
         if not prev_commit:
-            self.error("❌ NOTHING TO UNDO! NO GIT HISTORY FOR THIS TASK! 🔨")
+            self.error("Nothing to undo: no git history found for this task.")
 
         prev_prev_commit = None
         found_current = False
@@ -2823,8 +2740,8 @@ class TasksCLI:
 
         if not prev_prev_commit:
             self.error(
-                "❌ NOTHING TO UNDO! FIRST COMMIT FOR THIS TASK! 🔨",
-                hint="RUN 'git log' IN .tasks SEE FULL HISTORY!",
+                "Nothing to undo: this is the first commit for this task.",
+                hint="Use 'git log' in .tasks to see full history.",
             )
 
         last_commit_msg = self._run_git(
@@ -2847,7 +2764,7 @@ class TasksCLI:
         ]
 
         if not files_to_restore:
-            self.error("❌ COULD NOT FIND FILES TO RESTORE FROM PREVIOUS COMMIT! 🔨")
+            self.error("Could not find files to restore from previous commit.")
 
         temp_dir = tempfile.mkdtemp(dir=self.tasks_path)
         try:
@@ -3291,13 +3208,13 @@ class TasksCLI:
             install_path = system_dir
             mode = "system"
         else:
-            self.error("❌ CANNOT WRITE TO ~/.local/tasks-ai OR /opt/tasks-ai! 🔨")
+            self.error("Cannot write to either ~/.local/tasks-ai or /opt/tasks-ai")
 
         install_script = os.path.join(install_path, "install.sh")
 
         if not os.path.exists(install_script):
             self.error(
-                f"❌ install.sh NOT FOUND AT {install_path}! RUN 'tasks init' FIRST OR INSTALL MANUALLY! 🔨"
+                f"install.sh not found at {install_path}. Run 'tasks init' first or install manually."
             )
 
         self.log(f"Detected installation: {mode} at {install_path}")

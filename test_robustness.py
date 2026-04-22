@@ -24,7 +24,7 @@ class TestRobustness(unittest.TestCase):
         subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=self.repo_dir)
         # Compute absolute path to tasks.py based on this file's location
         self.script_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hammer"
+            os.path.dirname(os.path.abspath(__file__)), "tasks.py"
         )
 
         # Setup config
@@ -36,10 +36,6 @@ class TestRobustness(unittest.TestCase):
                 "test": "/bin/true",
                 "type_check": "/bin/true",
                 "format": "/bin/true",
-<<<<<<< HEAD:tests/test_robustness.py
-                "skip_push": True,
-=======
->>>>>>> testing:test_robustness.py
             }
         }
         with open(os.path.join(config_dir, "config.yaml"), "w") as f:
@@ -49,29 +45,14 @@ class TestRobustness(unittest.TestCase):
         shutil.rmtree(self.test_dir)
 
     def run_cmd(self, args, check=False):
-        # Copy check.py and repo.py to test repo
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        shutil.copy(os.path.join(base_dir, "check.py"), self.repo_dir)
-        shutil.copy(os.path.join(base_dir, "repo.py"), self.repo_dir)
-
         result = subprocess.run(
-            [sys.executable, self.script_path, "tasks", "-j"] + args,
+            [sys.executable, self.script_path, "-j"] + args,
             cwd=self.repo_dir,
-            env={
-                **os.environ,
-                "TASKS_TESTING": "1",
-                "TASKS_ROOT": os.path.join(self.repo_dir, ".tasks"),
-            },
             capture_output=True,
             text=True,
         )
-        # Try to parse JSON, handling possible non-JSON output before it
-        output = result.stdout
-        json_start = output.find("{")
-        if json_start >= 0:
-            output = output[json_start:]
         try:
-            data = json.loads(output)
+            data = json.loads(result.stdout)
             return data
         except json.JSONDecodeError:
             return {
@@ -973,16 +954,12 @@ class TestRobustness(unittest.TestCase):
         subprocess.run(["git", "add", "README.md"], cwd=non_task_dir)
         subprocess.run(["git", "commit", "-m", "Initial"], cwd=non_task_dir)
         result = subprocess.run(
-            [sys.executable, self.script_path, "tasks", "-j", "list"],
+            [sys.executable, self.script_path, "-j", "list"],
             cwd=non_task_dir,
             capture_output=True,
             text=True,
         )
-        output = result.stdout
-        json_start = output.find("{")
-        if json_start >= 0:
-            output = output[json_start:]
-        res = json.loads(output)
+        res = json.loads(result.stdout)
         self.assertFalse(res["success"], res)
 
     def test_link_archived_task(self):
