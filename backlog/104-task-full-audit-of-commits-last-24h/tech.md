@@ -1,0 +1,1 @@
+Use git log --since='24 hours ago' --all --patch and compare with task branches to identify discrepancies.
