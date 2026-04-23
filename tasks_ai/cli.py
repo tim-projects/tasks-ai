@@ -1437,7 +1437,9 @@ class TasksCLI:
         ):
             hint = f"Allowed transitions from {current_state} are: {', '.join(ALLOWED_TRANSITIONS.get(current_state, []))}. Do not bypass this tool."
             if current_state == "REJECTED" and new_status == "ARCHIVED":
-                hint += " Use 'hammer tasks delete <id>' to permanently remove the task."
+                hint += (
+                    " Use 'hammer tasks delete <id>' to permanently remove the task."
+                )
             if is_merged_branch:
                 hint += "\nNote: Branch is merged to main. You can archive this task directly."
             self.error(
