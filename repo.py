@@ -324,6 +324,10 @@ def cmd_promote(src_input, original_task_id=None):
                 cli.move(task_id, new_status)
 
     log(f"✅ Successfully promoted {src.upper()} → {target.upper()}")
+    if target == "main":
+        log(
+            f"Merged to main complete. Current branch: {subprocess.check_output(['git', 'branch', '--show-current']).decode().strip()}"
+        )
 
     if target == "main" and task_id and TasksCLI:
         log(
