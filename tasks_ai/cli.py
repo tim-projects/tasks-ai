@@ -734,6 +734,7 @@ class TasksCLI:
         plan=None,
         repro=None,
     ):
+        title = title.strip()
         if len(title) < 10:
             self.error("Task title is too vague. Min 10 chars.")
         missing = []
@@ -898,6 +899,7 @@ class TasksCLI:
         tt, _ = self._parse_filename(fname)
         updated = False
         if title:
+            title = title.strip()
             if len(title) < 10:
                 self.error("Title too vague.")
             task.metadata["Ti"] = title
@@ -2062,9 +2064,15 @@ class TasksCLI:
                 if not os.path.isdir(path):
                     continue
                 task = FM.load(path)
+                if task.corrupted:
+                    self.log(f"WARNING: Task at {path} is corrupted. Skipping automatic repair.")
+                    summary = "CORRUPTED TASK"
+                else:
+                    summary = (task.metadata.get("Ti") or "No Title")[:60]
+
                 tt, tb = self._parse_filename(item)
                 task_id = task.metadata.get("Id")
-                if not task_id:
+                if not task_id and not task.corrupted:
                     task_id = self._get_next_id()
                     task.metadata["Id"] = task_id
                     self._atomic_write(path, task)
@@ -2078,16 +2086,21 @@ class TasksCLI:
                         ],
                         cwd=self.tasks_path,
                     )
+                
+                # If still no task_id (because corrupted), use filename as fallback for sorting/display
+                if not task_id:
+                    task_id = item.split("-")[0] if "-" in item else "???"
+
                 seen.add(item)
                 tasks.append(
                     {
                         "id": task_id,
-                        "p": task.get("Pr", 9),
+                        "p": task.get("Pr") or 9,
                         "file": item,
                         "type": tt,
                         "branch": tb,
-                        "summary": task.metadata.get("Ti", "No Title")[:60],
-                        "blocked_by": task.get("Bl", []),
+                        "summary": summary,
+                        "blocked_by": task.get("Bl") or [],
                     }
                 )
             if tasks:

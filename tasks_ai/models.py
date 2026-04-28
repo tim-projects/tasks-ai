@@ -2,9 +2,10 @@
 
 
 class Task:
-    def __init__(self, metadata=None, parts=None):
+    def __init__(self, metadata=None, parts=None, corrupted=False):
         self.metadata = metadata or {}
         self.parts = parts or {}
+        self.corrupted = corrupted
 
     def __getitem__(self, key):
         return self.metadata.get(key)
