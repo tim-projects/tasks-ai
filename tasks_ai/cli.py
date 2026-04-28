@@ -1692,38 +1692,16 @@ class TasksCLI:
                         f"Make some progress before moving to testing. Do not bypass this tool."
                     )
 
-            if new_status == "REVIEW":
-                merge_base = self._run_git(
-                    ["merge-base", branch_sha or branch, "testing"]
-                ).stdout.strip()
-                testing_sha = (
-                    self._run_git(["rev-parse", "testing"]).stdout.strip()
-                    if self._run_git(["rev-parse", "--verify", "testing"]).returncode
-                    == 0
-                    else None
-                )
-                if not testing_sha or merge_base != testing_sha:
+            if new_status in ("REVIEW", "STAGING"):
+                # Delegate merge verification to repo.py
+                try:
+                    subprocess.run(
+                        [sys.executable, "repo.py", "git", "merge-base", "--is-ancestor", branch, "testing"],
+                        capture_output=True, text=True, check=True
+                    )
+                except subprocess.CalledProcessError:
                     self.error(
                         f"Branch '{branch}' not merged to testing. Merge to testing first. Do not bypass this tool.",
-                    )
-
-            if new_status == "STAGING":
-                merge_base = self._run_git(
-                    ["merge-base", branch_sha or branch, "testing"]
-                ).stdout.strip()
-                testing_sha = (
-                    self._run_git(["rev-parse", "testing"]).stdout.strip()
-                    if self._run_git(["rev-parse", "--verify", "testing"]).returncode
-                    == 0
-                    else None
-                )
-                if not testing_sha or merge_base != testing_sha:
-                    self.error(
-                        f"Branch '{branch}' not merged to testing. Merge to testing first. Do not bypass this tool.",
-                    )
-                if not testing_sha or merge_base != testing_sha:
-                    self.error(
-                        f"Branch '{branch}' not merged to testing. Merge to testing first."
                     )
 
             if new_status in ("DONE", "ARCHIVED") and not force:
