@@ -1696,7 +1696,7 @@ class TasksCLI:
                 # Delegate merge verification to repo.py
                 try:
                     subprocess.run(
-                        [sys.executable, "repo.py", "git", "merge-base", "--is-ancestor", branch, "testing"],
+                        [sys.executable, "repo.py", "check-merged-testing", branch],
                         capture_output=True, text=True, check=True
                     )
                 except subprocess.CalledProcessError:
@@ -1705,39 +1705,16 @@ class TasksCLI:
                     )
 
             if new_status in ("DONE", "ARCHIVED") and not force:
-                main_sha = (
-                    self._run_git(["rev-parse", "main"]).stdout.strip()
-                    if self._run_git(["rev-parse", "--verify", "main"]).returncode == 0
-                    else None
-                )
-                branch_exists = (
-                    self._run_git(["rev-parse", "--verify", branch]).returncode == 0
-                )
-                branch_commit = branch_sha
-                if not branch_commit and branch_exists:
-                    branch_commit = self._run_git(["rev-parse", branch]).stdout.strip()
-                if not branch_commit:
-                    if self._run_git(
-                        ["ls-remote", "--heads", "origin", branch]
-                    ).stdout.strip():
-                        self._run_git(["fetch", "origin", branch], cwd=self.root)
-                        branch_commit = self._run_git(
-                            ["rev-parse", f"origin/{branch}"]
-                        ).stdout.strip()
-                if not branch_commit:
-                    branch_commit = main_sha
-                if main_sha and branch_commit:
-                    # Check if branch is merged into main using merge-base --is-ancestor
-                    is_ancestor = (
-                        self._run_git(
-                            ["merge-base", "--is-ancestor", branch_commit, "main"]
-                        ).returncode
-                        == 0
+                # Use repo.py as authority for merge-to-main verification
+                try:
+                    subprocess.run(
+                        [sys.executable, "repo.py", "check-merged", branch],
+                        capture_output=True, text=True, check=True
                     )
-                    if not is_ancestor:
-                        self.error(
-                            f"Branch '{branch}' not merged to main. Merge to main first. Alternatively, move to REJECTED. Do not bypass this tool.",
-                        )
+                except subprocess.CalledProcessError:
+                    self.error(
+                        f"Branch '{branch}' not merged to main. Merge to main first. Do not bypass this tool.",
+                    )
                 if yes:
                     # Only delete local branch if task was in DONE state (completed full pipeline)
                     # Keep branch for potential restoration if rejected or archived before DONE
