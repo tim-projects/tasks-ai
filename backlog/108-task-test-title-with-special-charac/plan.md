@@ -1,0 +1,1 @@
+1. Create task and check if the title is preserved in the list output.

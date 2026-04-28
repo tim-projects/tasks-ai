@@ -1,0 +1,1 @@
+Technical background for special characters test. This is also long enough.
