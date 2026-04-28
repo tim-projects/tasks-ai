@@ -1269,8 +1269,31 @@ class TasksCLI:
         title = task.metadata.get("Ti", "")
         task_id_num = task.metadata.get("Id", "")
         tt, _ = self._parse_filename(os.path.basename(filepath))
+        # Validate status existence
+        if new_status not in STATE_FOLDERS:
+            self.error(
+                f'Invalid status "{new_status}".',
+                hint=f"Valid statuses are: {', '.join(STATE_FOLDERS.keys())}",
+            )
 
-        if "," in new_status:
+        # Check for non-sequential jumps and auto-promote if needed
+        # Keep promoting until we reach the target or hit a limit to prevent infinite loops
+        max_promotions = 5
+        while new_status not in ALLOWED_TRANSITIONS.get(current_state_from_folder, []) and current_state_from_folder != new_status and max_promotions > 0:
+            self.log(f"Auto-promoting from {current_state_from_folder} to {new_status} via repo.py...")
+            try:
+                subprocess.run(
+                    [sys.executable, "repo.py", "promote", str(task_id_num)],
+                    capture_output=True, text=True, check=True
+                )
+                # Refresh state after promotion
+                filepath, current_state_from_folder = self.find_task(filename)
+                max_promotions -= 1
+            except subprocess.CalledProcessError as e:
+                self.error(f"Auto-promotion failed: {e.stderr}")
+
+
+        if False and "," in new_status:
             statuses = [s.strip().upper() for s in new_status.split(",")]
             for s in statuses:
                 if s not in STATE_FOLDERS:
