@@ -1,4 +1,6 @@
 import subprocess
+
+
 def get_remote():
     res = subprocess.run(["git", "remote"], capture_output=True, text=True)
     remotes = res.stdout.split()

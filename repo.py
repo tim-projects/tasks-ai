@@ -48,12 +48,25 @@ NC = "\033[0m"
 FLAGS = {"yes": False, "quiet": False, "json": False, "dev": False}
 PIPELINE = ["testing", "staging", "main"]
 
+
 def get_primary_remote():
     try:
         remotes = run(["git", "remote"], capture=True).stdout.split()
-        if "origin" in remotes:
+        if "github" in remotes:
+            return "github"
+        return "origin"
+    except Exception:
+        return "origin"
+
+
+def get_primary_remote():
+    try:
+        result = subprocess.run(["git", "remote"], capture_output=True, text=True, check=True)
+        remotes = result.stdout.split()
+        if not remotes:
             return "origin"
-        return remotes[0] if remotes else "origin"
+        # If 'origin' exists, use it; otherwise use the first detected remote (e.g., 'github')
+        return "origin" if "origin" in remotes else remotes[0]
     except Exception:
         return "origin"
 
@@ -101,7 +114,7 @@ def find_project_root(start_path=None):
     return Path(__file__).parent.resolve()
 
 
-def run(cmd, check=True, capture=False, env=None, cwd=None, quiet=False):
+def run(cmd, check=True, capture=True, env=None, cwd=None, quiet=False):
     project_root = find_project_root()
     capture = capture or quiet or FLAGS["json"]
     try:
@@ -170,6 +183,7 @@ def branch_exists(name):
 
 
 def check_remote_exists():
+    print(f"DEBUG: PRIMARY_REMOTE={PRIMARY_REMOTE}")
     result = run(["git", "remote", "get-url", PRIMARY_REMOTE], check=False, capture=True)
     if result.returncode != 0:
         if FLAGS["yes"]:
