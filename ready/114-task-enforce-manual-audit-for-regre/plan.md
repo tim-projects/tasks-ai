@@ -1,3 +1,1 @@
-1. 1. Create 'repo audit --ack' command to generate audit sign-off.
-2. 2. Modify 'tasks move' STAGING gate to verify sign-off existence.
-3. 3. Restrict 'tasks modify --regression-check' availability.
+1. 1. Research current 'Rc' flag implementation in cli.py and how it's modified. 2. Implement 'repo audit --ack <task_id>' which writes an audit record to the task directory. 3. Update 'tasks move' logic to check for the presence of this audit record when entering STAGING. 4. Deprecate or restrict 'tasks modify --regression-check' to prevent direct automated marking.
