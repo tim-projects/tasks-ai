@@ -1269,12 +1269,9 @@ class TasksCLI:
         title = task.metadata.get("Ti", "")
         task_id_num = task.metadata.get("Id", "")
         tt, _ = self._parse_filename(os.path.basename(filepath))
-        # Validate status existence
-        if new_status not in STATE_FOLDERS:
-            self.error(
-                f'Invalid status "{new_status}".',
-                hint=f"Valid statuses are: {', '.join(STATE_FOLDERS.keys())}",
-            )
+        # Treat 'DONE' and 'MAIN' as interchangeable
+        if new_status == "MAIN":
+            new_status = "DONE"
 
         # Check for non-sequential jumps and auto-promote if needed
         # Keep promoting until we reach the target or hit a limit to prevent infinite loops

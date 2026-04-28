@@ -160,7 +160,7 @@ class TestDevMode(unittest.TestCase):
         )
         self.assertEqual(res.returncode, 0)
 
-        # 5. Move
+        # 5. Move sequentially
         res = subprocess.run(
             [
                 sys.executable,
@@ -169,7 +169,21 @@ class TestDevMode(unittest.TestCase):
                 "--dev",
                 "move",
                 "1",
-                "READY,PROGRESSING",
+                "READY",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res.returncode, 0)
+        res = subprocess.run(
+            [
+                sys.executable,
+                self.script_path,
+                "-j",
+                "--dev",
+                "move",
+                "1",
+                "PROGRESSING",
             ],
             capture_output=True,
             text=True,
@@ -286,7 +300,7 @@ class TestDevMode(unittest.TestCase):
         branch = task_file
         self.branch_name = branch  # store for cleanup
 
-        # Move to PROGRESSING
+        # Move sequentially
         res = subprocess.run(
             [
                 sys.executable,
@@ -295,13 +309,24 @@ class TestDevMode(unittest.TestCase):
                 "--dev",
                 "move",
                 task_file,
-                "READY,PROGRESSING",
+                "READY",
             ],
             capture_output=True,
             text=True,
         )
-        print(
-            f"[TEST] move PROGRESSING rc={res.returncode}, stdout={res.stdout[:200]}, stderr={res.stderr[:200]}"
+        self.assertEqual(res.returncode, 0)
+        res = subprocess.run(
+            [
+                sys.executable,
+                self.script_path,
+                "-j",
+                "--dev",
+                "move",
+                task_file,
+                "PROGRESSING",
+            ],
+            capture_output=True,
+            text=True,
         )
         self.assertEqual(res.returncode, 0)
 
