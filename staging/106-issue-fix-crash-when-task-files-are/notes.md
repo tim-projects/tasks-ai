@@ -1,4 +1,5 @@
 
+
 # Progress: Fix crash when task files are corrupted
 ## Findings
 - FM.load crashes when meta.json is corrupted (invalid JSON) or empty.
