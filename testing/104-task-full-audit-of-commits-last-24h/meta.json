@@ -5,7 +5,8 @@
   "Bl": [],
   "Pr": 2,
   "Br": "104-task-full-audit-of-commits-last-24h",
-  "Tp": false,
-  "Rc": "",
-  "Vp": true
+  "Tp": true,
+  "Rc": true,
+  "Vp": true,
+  "Ar": "true"
 }
