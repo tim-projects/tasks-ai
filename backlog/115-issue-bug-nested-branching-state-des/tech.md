@@ -1,0 +1,1 @@
+Hammer currently branches from HEAD, leading to nested dependencies. The state (task index/counter) is branch-dependent, causing index drift. Git index locks occur during rapid operations.
