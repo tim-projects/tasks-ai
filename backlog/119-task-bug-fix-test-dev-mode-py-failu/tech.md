@@ -1,0 +1,1 @@
+Investigate test_dev_mode.py's diff capture mechanism. Verify why 'unstaged change for diff test' is missing from the patch generated in dev mode. Fix the test or the diff generation logic to ensure consistent behavior in both standard and dev environments.

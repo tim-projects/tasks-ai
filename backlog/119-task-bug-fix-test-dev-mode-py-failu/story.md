@@ -1,0 +1,1 @@
+The test_review_diff_in_dev_mode test in tests/test_dev_mode.py is failing, likely due to how unstaged changes are captured in the generated patch in dev mode.
