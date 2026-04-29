@@ -1,0 +1,1 @@
+1. 1. Research  logic for promotion/archiving. 2. Research  state machine move logic. 3. Implement structural blockers. 4. Verify with new test cases.

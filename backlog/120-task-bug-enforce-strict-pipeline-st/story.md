@@ -1,0 +1,1 @@
+The system allowed task 119 to be archived without being merged into main, and permitted a skip-state transition from PROGRESSING directly to REVIEW, bypassing the TESTING gate.

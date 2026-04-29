@@ -1,0 +1,1 @@
+Audit  and  to identify why the state-machine gates failed. Implement strict validation in  that blocks archiving unless the branch is merged into . Add a hard constraint in  that prevents any skip-state transition.
