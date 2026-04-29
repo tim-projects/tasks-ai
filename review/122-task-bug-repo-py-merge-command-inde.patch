@@ -1,0 +1,38 @@
+diff --git a/hammer_test_base.py b/hammer_test_base.py
+index e494ae5..fd0be8f 100644
+--- a/hammer_test_base.py
++++ b/hammer_test_base.py
+@@ -1,7 +1,6 @@
+ import unittest
+ import subprocess
+ import os
+-import shutil
+ import tempfile
+ import sys
+ import json
+diff --git a/tests/test_all_transitions.py b/tests/test_all_transitions.py
+index 63b2414..301dcbf 100644
+--- a/tests/test_all_transitions.py
++++ b/tests/test_all_transitions.py
+@@ -18,7 +18,8 @@ class TestAllTransitions(HammerTestBase):
+         states_to_test = [s for s in STATE_FOLDERS.keys() if s not in ["BACKLOG"]]
+         
+         for target in states_to_test:
+-            if target == current: continue
++            if target == current:
++                continue
+             
+             res = self.run_tasks(["move", str(task_id), target])
+             output = json.loads(res.stdout)
+diff --git a/tests/test_dev_mode.py b/tests/test_dev_mode.py
+index a8e9125..8c70eb0 100644
+--- a/tests/test_dev_mode.py
++++ b/tests/test_dev_mode.py
+@@ -1,7 +1,6 @@
+ import json
+ import os
+ import subprocess
+-import sys
+ import unittest
+ from hammer_test_base import HammerTestBase
+ 
