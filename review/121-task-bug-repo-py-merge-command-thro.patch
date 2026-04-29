@@ -1,0 +1,6 @@
+diff --cc tests/test_all_transitions.py
+index e9b63e1,63b2414..0000000
+--- a/tests/test_all_transitions.py
++++ b/tests/test_all_transitions.py
+# Staged changes:
+* Unmerged path tests/test_all_transitions.py
