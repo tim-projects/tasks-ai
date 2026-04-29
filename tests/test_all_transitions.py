@@ -5,7 +5,7 @@ from tasks_ai.constants import ALLOWED_TRANSITIONS, STATE_FOLDERS
 
 class TestAllTransitions(HammerTestBase):
     def test_transitions(self):
-        res = self.run_tasks(["create", "Comprehensive Test Task", 
+        res = self.run_tasks(["create", "Comprehensive Test Title Task", 
              "--story", "Sufficiently long story content here...", 
              "--tech", "Sufficiently long technical description here...", 
              "--criteria", "Sufficiently long acceptance criteria here...", 
@@ -18,7 +18,8 @@ class TestAllTransitions(HammerTestBase):
         states_to_test = [s for s in STATE_FOLDERS.keys() if s not in ["BACKLOG"]]
         
         for target in states_to_test:
-            if target == current: continue
+            if target == current:
+                continue
             
             res = self.run_tasks(["move", str(task_id), target])
             output = json.loads(res.stdout)
