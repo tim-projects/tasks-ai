@@ -5,6 +5,8 @@
   "Bl": [],
   "Pr": 2,
   "Br": "119-task-bug-fix-test-dev-mode-py-failu",
-  "Rc": "",
-  "Vp": true
+  "Rc": true,
+  "Vp": true,
+  "Tp": true,
+  "Ar": "true"
 }
