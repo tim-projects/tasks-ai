@@ -1,1 +1,1 @@
-1. 1. Analyze test_review_diff_in_dev_mode code.\n2. Reproduce failure locally.\n3. Identify missing diff coverage.\n4. Apply fix.\n5. Verify with 'pytest tests/test_dev_mode.py'.
+1. 1. Upgrade test_dev_mode.py to HammerTestBase. 2. Verify dev mode diff generation works. 3. Systematically upgrade other legacy test files to HammerTestBase.
