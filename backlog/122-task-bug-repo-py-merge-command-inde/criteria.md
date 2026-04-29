@@ -1,0 +1,1 @@
+- [ ] 1. Ensure cmd_merge uses correct arguments. 2. Verify persistence after promotion cycles. 3. Prevent future regressions.

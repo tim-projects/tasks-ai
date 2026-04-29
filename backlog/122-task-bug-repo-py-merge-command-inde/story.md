@@ -1,0 +1,1 @@
+The fix for the repo.py merge IndexError did not persist or was incomplete, causing the error to re-occur.
