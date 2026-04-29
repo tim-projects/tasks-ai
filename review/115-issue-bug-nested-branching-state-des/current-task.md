@@ -2,6 +2,7 @@
 Task: 115-issue-bug-nested-branching-state-des
 ---
 
+
 - Progress: Implemented fix to create new task branch from default branch (main).
 - Findings: Creating nested branches from the current branch causes state fragmentation as .tasks state is branch-dependent.
 - Mitigations:
