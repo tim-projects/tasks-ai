@@ -1,0 +1,1 @@
+- [x] - [x] Identify why pipeline gates were bypassed\n- [x] Update  to prevent archiving without main-merge\n- [x] Update  to enforce strict state sequencing
