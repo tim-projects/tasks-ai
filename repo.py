@@ -336,7 +336,7 @@ def main():
         return
     cmd = args[0]
     if cmd == "merge":
-        cmd_merge(args[1], args[3])
+        cmd_merge(args[1], args[2])
     elif cmd == "promote":
         cmd_promote(args[1])
     elif cmd == "demote":
