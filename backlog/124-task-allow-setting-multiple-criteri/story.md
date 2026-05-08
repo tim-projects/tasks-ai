@@ -1,0 +1,1 @@
+When using 'hammer tasks modify <id> --criteria value1 value2', the values should be treated as separate list items. Currently using quoted strings causes formatting issues.

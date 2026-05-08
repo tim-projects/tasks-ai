@@ -1,0 +1,8 @@
+{
+  "Id": 124,
+  "Ti": "Allow setting multiple criteria values with --criteria value1 value2 syntax (not --criteria 'value1' 'value2')",
+  "Cr": "260508 12:05",
+  "Bl": [],
+  "Pr": 2,
+  "Br": "124-task-allow-setting-multiple-criteri"
+}

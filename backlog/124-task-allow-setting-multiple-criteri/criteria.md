@@ -1,0 +1,3 @@
+- [ ] Investigate criteria parsing
+- [ ] Fix criteria format handling
+- [ ] Add tests for criteria setting

@@ -1,0 +1,1 @@
+The modify command uses nargs='+' for criteria which splits on whitespace. However, the format is being preserved with markdown checkboxes incorrectly.
