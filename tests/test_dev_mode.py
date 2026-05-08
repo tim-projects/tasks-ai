@@ -1,7 +1,6 @@
 import json
 import os
 import subprocess
-import sys
 import unittest
 from hammer_test_base import HammerTestBase
 
