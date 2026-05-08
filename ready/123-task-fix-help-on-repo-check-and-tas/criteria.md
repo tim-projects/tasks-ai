@@ -1,3 +1,3 @@
-- [ ] - [x] hammer repo --help shows usage information
-- [ ] - [x] hammer repo -h works
-- [ ] - [x] All repo subcommands have help
+- [ ] hammer repo --help shows usage information
+- [ ] hammer repo -h works
+- [ ] All repo subcommands have help
