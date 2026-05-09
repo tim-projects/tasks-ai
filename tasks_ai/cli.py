@@ -1709,6 +1709,8 @@ class TasksCLI:
                 # Determine if branch has new commits not in testing
                 # Use merge-base --is-ancestor: returns 0 if branch_tip is ancestor of testing (i.e., testing already contains it)
                 newer_than_testing = True  # assume new unless proven otherwise
+                already_merged_to_testing = False
+                already_merged_to_main = False
                 if testing_sha:
                     ancestor_res = self._run_git(
                         ["merge-base", "--is-ancestor", branch_tip_sha, testing_sha],
@@ -1719,11 +1721,33 @@ class TasksCLI:
                         newer_than_testing = False
                     else:
                         newer_than_testing = True
+                    # Also check if testing is ancestor of branch (i.e., branch is already merged to testing)
+                    merge_check_res = self._run_git(
+                        ["merge-base", "--is-ancestor", testing_sha, branch_tip_sha],
+                        cwd=self.root,
+                    )
+                    already_merged_to_testing = merge_check_res.returncode == 0
+
+                    # Check if merged to main as well (covers direct-to-main merges)
+                    main_sha = None
+                    main_verify = self._run_git(
+                        ["rev-parse", "--verify", "main"], cwd=self.root
+                    )
+                    if main_verify.returncode == 0:
+                        main_sha = self._run_git(
+                            ["rev-parse", "main"], cwd=self.root
+                        ).stdout.strip()
+                    if main_sha:
+                        main_merge_res = self._run_git(
+                            ["merge-base", "--is-ancestor", main_sha, branch_tip_sha],
+                            cwd=self.root,
+                        )
+                        already_merged_to_main = main_merge_res.returncode == 0
                 else:
                     # No testing branch yet, any work is new
                     newer_than_testing = True
 
-                if not has_unstaged and not newer_than_testing:
+                if not has_unstaged and not newer_than_testing and not already_merged_to_testing and not already_merged_to_main:
                     self.error(
                         f"Branch '{branch}' has no unstaged file changes and no commits newer than testing. "
                         f"Make some progress before moving to testing. Do not bypass this tool."
@@ -1734,12 +1758,19 @@ class TasksCLI:
                 try:
                     subprocess.run(
                         [sys.executable, "repo.py", "check-merged-testing", branch],
-                        capture_output=True, text=True, check=True
+                        capture_output=True, text=True, check=True,
                     )
                 except subprocess.CalledProcessError:
-                    self.error(
-                        f"Branch '{branch}' not merged to testing. Merge to testing first. Do not bypass this tool.",
-                    )
+                    # Also allow if branch is already merged to main
+                    try:
+                        subprocess.run(
+                            [sys.executable, "repo.py", "check-merged", branch],
+                            capture_output=True, text=True, check=True,
+                        )
+                    except subprocess.CalledProcessError:
+                        self.error(
+                            f"Branch '{branch}' not merged to testing or main. Merge to testing or main first. Do not bypass this tool.",
+                        )
 
             # Gate for DONE/ARCHIVED: must be merged to main
             if new_status in ("DONE", "ARCHIVED") and not force:
