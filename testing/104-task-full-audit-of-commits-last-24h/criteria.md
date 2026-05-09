@@ -1,1 +1,1 @@
-- [ ] All missing rebrandings found and logged. Plan for restoration created.
+- [x] All missing rebrandings found and logged. Plan for restoration created.
