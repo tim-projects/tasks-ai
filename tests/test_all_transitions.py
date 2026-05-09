@@ -18,7 +18,8 @@ class TestAllTransitions(HammerTestBase):
         states_to_test = [s for s in STATE_FOLDERS.keys() if s not in ["BACKLOG"]]
         
         for target in states_to_test:
-            if target == current: continue
+            if target == current:
+                continue
             
             res = self.run_tasks(["move", str(task_id), target])
             output = json.loads(res.stdout)
