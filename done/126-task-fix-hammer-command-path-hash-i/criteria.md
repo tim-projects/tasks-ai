@@ -1,0 +1,5 @@
+- [x] Post-install message mentions hash refresh
+- [x] README/INSTALL docs include shell refresh note
+- [x] hammer doctor validates installation health
+- [x] install.sh detects and warns about conflicting aliases
+- [x] hammer show (no args) lists all tasks
