@@ -114,7 +114,7 @@ def find_project_root(start_path=None):
     return Path(__file__).parent.resolve()
 
 
-def run(cmd, check=True, capture=False, env=None, cwd=None, quiet=False):
+def run(cmd, check=True, capture=False, env=None, cwd=None, quiet=False, context=None):
     project_root = find_project_root()
     capture = capture or quiet or FLAGS["json"]
     try:
@@ -128,7 +128,12 @@ def run(cmd, check=True, capture=False, env=None, cwd=None, quiet=False):
         )
     except subprocess.CalledProcessError as e:
         err_msg = e.stderr if capture else ""
-        error(f"Command failed: {' '.join(cmd)}\n{err_msg}")
+        base_msg = f"Command failed: {' '.join(cmd)}"
+        if context:
+            base_msg = f"[{context}] {base_msg}"
+        if err_msg:
+            base_msg += f"\n{err_msg}"
+        error(base_msg)
         raise
 
 
@@ -230,7 +235,9 @@ def cmd_merge(src_input, target_input, auto_commit=True):
     info(f"Merging {src.upper()} → {target.upper()}")
     current = get_current_branch()
     if current != src:
-        st = run(["git", "status", "--porcelain"], capture=True).stdout.strip()
+        st = run(
+            ["git", "status", "--porcelain"], capture=True, context="git status"
+        ).stdout.strip()
         if st:
             if auto_commit:
                 warn(f"Uncommitted changes on {current.upper()}. Auto-committing...")
@@ -241,17 +248,20 @@ def cmd_merge(src_input, target_input, auto_commit=True):
                     f"Uncommitted changes on {current}. Please commit or stash them before running sync.",
                     hint="Run 'git status' to see changes, then commit or run 'git stash'.",
                 )
-        run(["git", "checkout", src])
+        run(["git", "checkout", src], context=f"checkout {src}")
     log(f"Merging {src} into {target}...")
-    run(["git", "checkout", target])
+    run(["git", "checkout", target], context=f"checkout {target}")
     if check_remote_exists():
         run(["git", "pull", PRIMARY_REMOTE, target], check=False)
     else:
         warn("No remote - skipping pull")
-    run(["git", "merge", src, "-m", f"merge: {src} into {target}"])
+    run(
+        ["git", "merge", src, "-m", f"merge: {src} into {target}"],
+        context=f"merge {src}→{target}",
+    )
     if check_remote_exists():
         if FLAGS["yes"] or prompt_yes_no(f"Push {target}?"):
-            run(["git", "push", PRIMARY_REMOTE, target])
+            run(["git", "push", PRIMARY_REMOTE, target], context=f"push {target}")
     else:
         warn("No remote - skipping push")
     log(f"✅ Successfully merged {src.upper()} → {target.upper()}")
@@ -475,13 +485,9 @@ Options:
     "sync": """
 Usage: repo sync
 
-Run full 2-way sync: merge testing→staging→main→staging→testing.
-Keeps all three pipeline branches (testing, staging, main) in sync.
-Equivalent to running:
-  repo merge testing staging
-  repo merge staging main
-  repo merge main staging
-  repo merge staging testing
+Run full sync: merge testing into staging, then staging into main.
+Equivalent to running 'repo merge testing staging' followed by
+'repo merge staging main'.
 
 Options:
   -y, --yes  - Auto-confirm prompts
@@ -592,12 +598,20 @@ def main():
             return
         cmd_demote(args[0], args[1])
     elif cmd == "sync":
-        # Upstream: testing → staging → main
-        cmd_merge("testing", "staging", auto_commit=False)
-        cmd_merge("staging", "main", auto_commit=False)
-        # Downstream: main → staging → testing (2-way sync keeps all branches aligned)
-        cmd_merge("main", "staging", auto_commit=False)
-        cmd_merge("staging", "testing", auto_commit=False)
+        steps = [
+            ("testing", "staging"),
+            ("staging", "main"),
+            ("main", "staging"),
+            ("staging", "testing"),
+        ]
+        for i, (src, dst) in enumerate(steps, 1):
+            log(f"[sync {i}/{len(steps)}] Merging {src} → {dst}...")
+            try:
+                cmd_merge(src, dst, auto_commit=False)
+            except SystemExit:
+                error(
+                    f"SYNC FAILED at step {i}/{len(steps)}: {src} → {dst}. Resolve conflicts and re-run sync."
+                )
     elif cmd == "commit":
         if len(args) < 1:
             print(HELP_DOCS["commit"].strip())
