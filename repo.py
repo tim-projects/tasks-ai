@@ -235,7 +235,9 @@ def cmd_merge(src_input, target_input, auto_commit=True):
     info(f"Merging {src.upper()} → {target.upper()}")
     current = get_current_branch()
     if current != src:
-        st = run(["git", "status", "--porcelain"], capture=True, context="git status").stdout.strip()
+        st = run(
+            ["git", "status", "--porcelain"], capture=True, context="git status"
+        ).stdout.strip()
         if st:
             if auto_commit:
                 warn(f"Uncommitted changes on {current.upper()}. Auto-committing...")
@@ -607,7 +609,9 @@ def main():
             try:
                 cmd_merge(src, dst, auto_commit=False)
             except SystemExit:
-                error(f"SYNC FAILED at step {i}/{len(steps)}: {src} → {dst}. Resolve conflicts and re-run sync.")
+                error(
+                    f"SYNC FAILED at step {i}/{len(steps)}: {src} → {dst}. Resolve conflicts and re-run sync."
+                )
     elif cmd == "commit":
         if len(args) < 1:
             print(HELP_DOCS["commit"].strip())
