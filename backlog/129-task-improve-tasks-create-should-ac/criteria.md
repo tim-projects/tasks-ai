@@ -1,0 +1,2 @@
+- [ ] Create with --branch no longer errors
+- [ ] Helpful message explains branch auto-generation

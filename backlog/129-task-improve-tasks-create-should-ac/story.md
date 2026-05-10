@@ -1,0 +1,1 @@
+When users pass --branch to tasks create, they get "unrecognized arguments" error. The flag should be accepted (no-op) with an informative message that branches are auto-generated from title.

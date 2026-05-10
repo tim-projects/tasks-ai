@@ -1,0 +1,1 @@
+Add --branch argument to create subparser in tasks.py with action="store_true". In create() method, detect if branch flag was used and print info message instead of error. Branches are always auto-created from title sanitization.
