@@ -1,0 +1,1 @@
+1. 1. Add auto_commit param to cmd_merge\n2. Update sync to pass auto_commit=False\n3. Add test to verify sync doesn't auto-commit\n4. Run full test suite

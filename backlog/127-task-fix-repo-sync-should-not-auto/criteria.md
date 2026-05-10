@@ -1,0 +1,3 @@
+- [ ] sync does not create commits on unrelated branches
+- [ ] sync fails with clear error if uncommitted changes present
+- [ ] All existing tests pass

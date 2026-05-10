@@ -1,0 +1,8 @@
+{
+  "Id": 127,
+  "Ti": "Fix: repo sync should not auto-commit uncommitted changes",
+  "Cr": "260510 14:44",
+  "Bl": [],
+  "Pr": 2,
+  "Br": "127-task-fix-repo-sync-should-not-auto"
+}

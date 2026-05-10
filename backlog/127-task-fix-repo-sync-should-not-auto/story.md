@@ -1,0 +1,1 @@
+As a user, when I run 'hammer repo sync', I expect it to only propagate existing commits through the pipeline without creating new WIP commits on any branch.

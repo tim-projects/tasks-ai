@@ -1,0 +1,1 @@
+The cmd_merge function auto-commits uncommitted changes when switching branches (current != src). During sync, this creates unexpected commits on whatever branch the user is on. The fix adds an auto_commit parameter to cmd_merge, defaults to True (preserving existing behavior for explicit 'repo merge' and 'repo promote'), but sync passes auto_commit=False to prevent side effects.
