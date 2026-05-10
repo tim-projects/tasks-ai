@@ -1,0 +1,1 @@
+repo.py merge command crashes with IndexError when called with wrong arguments

@@ -1,0 +1,1 @@
+cmd_merge accesses args[3] without validating argument count
