@@ -1161,6 +1161,40 @@ class TasksCLI:
             if dump.parts.get("content"):
                 task.parts["notes"] = dump.parts["content"]
                 updated = True
+
+        # Detect manual unstaged or staged edits to task part files (story.md, tech.md, criteria.md, plan.md, repro.md, notes.md, etc.)
+        # Compare working tree and index against HEAD for files in the task directory.
+        rel_task_dir = os.path.relpath(filepath_str, self.root)
+        # Unstaged changes (working tree vs index)
+        res_unstaged = self._run_git(
+            ["diff", "--name-only", "--", rel_task_dir], cwd=self.root
+        )
+        # Staged changes (index vs HEAD)
+        res_staged = self._run_git(
+            ["diff", "--cached", "--name-only", "--", rel_task_dir], cwd=self.root
+        )
+        changed_files = set()
+        if res_unstaged.returncode == 0 and res_unstaged.stdout.strip():
+            changed_files.update(res_unstaged.stdout.strip().splitlines())
+        if res_staged.returncode == 0 and res_staged.stdout.strip():
+            changed_files.update(res_staged.stdout.strip().splitlines())
+        for rel_path in changed_files:
+            if not rel_path.endswith(".md"):
+                continue
+            fname = os.path.basename(rel_path)
+            if fname == CURRENT_TASK_FILENAME:
+                continue
+            part_name = fname[:-3]  # strip .md extension
+            abs_path = os.path.join(self.root, rel_path)
+            try:
+                with open(abs_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                if task.parts.get(part_name) != content:
+                    task.parts[part_name] = content
+                    updated = True
+            except Exception:
+                pass
+
         return updated
 
     def _get_default_branch(self):
