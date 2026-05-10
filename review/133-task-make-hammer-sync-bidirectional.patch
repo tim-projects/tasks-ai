@@ -1,1 +1,26 @@
-# No changes detected
+diff --git a/diff_debug.log b/diff_debug.log
+index 78a7bdf..bc95d7e 100644
+--- a/diff_debug.log
++++ b/diff_debug.log
+@@ -25,3 +25,4 @@ branch=128-task-fix-repo-merge-indexerror-cras, main_sha=9b8d180cbe9e749422ca8a2
+ branch=128-task-fix-repo-merge-indexerror-cras, main_sha=9b8d180cbe9e749422ca8a2d2d4922e803c504b8, diff_len=1333
+ branch=130-task-fix-allowed-transitions-preven, main_sha=7d7e349ca1b90944d61ad530b7fef116f55f7afe, diff_len=655
+ branch=131-task-checkpoint-should-detect-manua, main_sha=1210ae6538ed2369ba14733293be32c0fbf6975a, diff_len=2000
++branch=133-task-make-hammer-sync-bidirectional, main_sha=1dd34188d02995ff21d70538130e5a0422998fdf, diff_len=0
+diff --git a/repo.py b/repo.py
+index e03ee36..89ed7b9 100644
+--- a/repo.py
++++ b/repo.py
+@@ -588,8 +588,12 @@ def main():
+             return
+         cmd_demote(args[0], args[1])
+     elif cmd == "sync":
++        # Upstream: testing → staging → main
+         cmd_merge("testing", "staging", auto_commit=False)
+         cmd_merge("staging", "main", auto_commit=False)
++        # Downstream: main → staging → testing (2-way sync keeps all branches aligned)
++        cmd_merge("main", "staging", auto_commit=False)
++        cmd_merge("staging", "testing", auto_commit=False)
+     elif cmd == "commit":
+         if len(args) < 1:
+             print(HELP_DOCS["commit"].strip())
