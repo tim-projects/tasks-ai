@@ -217,7 +217,7 @@ if __name__ == "__main__":
     )
 
     if args.command == "init":
-        cli.init()
+        cli.init(force=getattr(args, "force", False))
     elif args.command == "save":
         cli.save(branch=args.branch)
     elif args.command == "create":
