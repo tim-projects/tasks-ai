@@ -1,1 +1,2 @@
-- [ ] Title should be preserved correctly in the list.
+- [ ] Test one
+- [ ] Test two
