@@ -30,7 +30,12 @@ if __name__ == "__main__":
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    subparsers.add_parser("init", help="Init tasks.")
+    init_p = subparsers.add_parser("init", help="Initialize tasks worktree.")
+    init_p.add_argument(
+        "--force",
+        action="store_true",
+        help="Force reinitialization (deletes existing .tasks if present). DANGEROUS: will lose all task data.",
+    )
 
     save_p = subparsers.add_parser(
         "save", help="Save and push .tasks worktree to remote."
