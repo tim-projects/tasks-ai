@@ -588,8 +588,12 @@ def main():
             return
         cmd_demote(args[0], args[1])
     elif cmd == "sync":
+        # Upstream: testing → staging → main
         cmd_merge("testing", "staging", auto_commit=False)
         cmd_merge("staging", "main", auto_commit=False)
+        # Downstream: main → staging → testing (2-way sync keeps all branches aligned)
+        cmd_merge("main", "staging", auto_commit=False)
+        cmd_merge("staging", "testing", auto_commit=False)
     elif cmd == "commit":
         if len(args) < 1:
             print(HELP_DOCS["commit"].strip())
