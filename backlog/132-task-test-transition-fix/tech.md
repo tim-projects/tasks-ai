@@ -1,0 +1,1 @@
+Technical details about testing the transition fix in constants
