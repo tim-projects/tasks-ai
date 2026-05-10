@@ -1,0 +1,1 @@
+387f8ff Fix: Prevent hammer init from deleting existing .tasks with data
