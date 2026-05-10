@@ -1,2 +1,0 @@
-- [ ] Allow setting multiple criteria values with --criteria
-- [ ] hammer show without args lists all tasks
