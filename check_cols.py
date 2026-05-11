@@ -1,5 +1,4 @@
 import os
-import sys
 # Simulate what hammer does
 def get_terminal_width():
     try:

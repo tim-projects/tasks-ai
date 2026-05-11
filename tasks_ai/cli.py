@@ -41,6 +41,10 @@ class TasksCLI:
         self.output_messages = []
         self.root = self._get_git_root()
 
+        # Resolve absolute path to repo.py (works for both source checkout and system install)
+        install_dir = Path(__file__).resolve().parent.parent
+        self.repo_script = str(install_dir / "repo.py")
+
         # Determine tasks directory
         self.tasks_dir = TASKS_DIR
         if dev:
@@ -1448,7 +1452,7 @@ class TasksCLI:
             )
             try:
                 subprocess.run(
-                    [sys.executable, "repo.py", "promote", str(task_id_num), "-y"],
+                    [sys.executable, self.repo_script, "promote", str(task_id_num), "-y"],
                     capture_output=True,
                     text=True,
                     check=True,
@@ -1914,7 +1918,7 @@ class TasksCLI:
             if new_status == "STAGING":
                 try:
                     subprocess.run(
-                        [sys.executable, "repo.py", "check-merged-testing", branch],
+                        [sys.executable, self.repo_script, "check-merged-testing", branch],
                         capture_output=True,
                         text=True,
                         check=True,
@@ -1923,7 +1927,7 @@ class TasksCLI:
                     # Also allow if branch is already merged to main
                     try:
                         subprocess.run(
-                            [sys.executable, "repo.py", "check-merged", branch],
+                            [sys.executable, self.repo_script, "check-merged", branch],
                             capture_output=True,
                             text=True,
                             check=True,
@@ -1938,7 +1942,7 @@ class TasksCLI:
                 # Use repo.py as authority for merge-to-main verification
                 try:
                     subprocess.run(
-                        [sys.executable, "repo.py", "check-merged", branch],
+                        [sys.executable, self.repo_script, "check-merged", branch],
                         capture_output=True,
                         text=True,
                         check=True,
