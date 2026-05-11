@@ -1672,6 +1672,11 @@ class TasksCLI:
             self._run_tests()
 
         # Re-validate when moving out of TESTING to any state
+        # Hardening: Run validation on all moves out of TESTING/PROGRESSING
+        if current_state in ["TESTING", "PROGRESSING"]:
+            self.log("Running pre-transition validation...")
+            self._run_validation()
+            self._run_tests()
         if current_state == "TESTING" and new_status != "REVIEW":
             self._run_validation()
             task = FM.load(filepath_str)
@@ -3697,29 +3702,6 @@ class TasksCLI:
             self.log("✅ Upgrade complete!")
             self.log(f"Installed to: {install_path}")
 
-    def verify(self, task_id):
-        """Verify criteria and generate a cryptographic audit file."""
-        import hashlib
-        res = self._resolve_task(task_id)
-        
-        criteria_path = os.path.join(os.path.dirname(res["patch_path"]), "criteria.md")
-        if not os.path.exists(criteria_path):
-            self.error(f"No criteria found at {criteria_path}")
-            
-        with open(criteria_path, "r") as f:
-            content = f.read()
-            if "- [ ]" in content:
-                self.error("Criteria not fully checked. Verify requirements first.")
-        
-        sha256 = hashlib.sha256()
-        sha256.update(content.encode("utf-8"))
-        criteria_hash = sha256.hexdigest()
-        
-        audit_path = criteria_path + ".audit"
-        with open(audit_path, "w") as f:
-            f.write(f"Criteria-Hash: {criteria_hash}\nVerified-By: {os.getlogin()}\nTime: {os.times()}\n")
-            
-        self.log(f"✅ Criteria verified and hashed: {criteria_hash[:8]}...")
 
     def _check_audit_integrity(self, task_id):
         import hashlib
@@ -3774,3 +3756,56 @@ class TasksCLI:
             f.write(hasher.hexdigest())
             
         self.log(f"✅ Proof verified and criteria hash locked: {hasher.hexdigest()[:8]}...")
+    def _resolve_task(self, task_id_or_filename):
+        """Standardized resolution: returns (filepath, task_id_num, filename)."""
+        # 1. Try exact match filename
+        for folder in STATE_FOLDERS.values():
+            path = os.path.join(self.tasks_path, folder)
+            if not os.path.exists(path):
+                    continue
+            for f in os.listdir(path):
+                if f == task_id_or_filename or f.startswith(f"{task_id_or_filename}-"):
+                    fp = os.path.join(path, f)
+                    task = FM.load(fp)
+                    return fp, task.metadata.get("Id"), f
+        
+        # 2. Try numeric ID
+        for folder in STATE_FOLDERS.values():
+            path = os.path.join(self.tasks_path, folder)
+            if not os.path.exists(path):
+                    continue
+            for f in os.listdir(path):
+                fp = os.path.join(path, f)
+                if not os.path.isdir(fp):
+                        continue
+                task = FM.load(fp)
+                if str(task.metadata.get("Id")) == str(task_id_or_filename):
+                    return fp, task_id_or_filename, f
+        
+        return None, None, None
+    def audit(self, task_id):
+        """Generate an audit log after reviewing the patch."""
+        import hashlib
+        filepath, _, filename = self._resolve_task(task_id)
+        if not filepath:
+            self.error(f"Task {task_id} not found.")
+        
+        patch_path = os.path.join(filepath, "diff.patch")
+        audit_path = os.path.join(filepath, f"{filename}.audit")
+        
+        if not os.path.exists(patch_path):
+            self.error(f"No patch file found at {patch_path}. Move to REVIEW first.")
+            
+        sha256 = hashlib.sha256()
+        with open(patch_path, "rb") as f:
+            while True:
+                data = f.read(65536)
+                if not data:
+                        break
+                sha256.update(data)
+        patch_hash = sha256.hexdigest()
+
+        with open(audit_path, "w") as f:
+            f.write(f"Audited by: {os.getlogin()}\nTime: {os.times()}\nPatch-Hash: {patch_hash}\n")
+            
+        self.log(f"✅ Audit log created for task {filename} at {audit_path} (Hash: {patch_hash[:8]}...)")
