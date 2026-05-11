@@ -1,0 +1,1 @@
+1. 1. Identify all tasks with mismatched IDs. 2. Restore correct IDs in meta.json. 3. Cleanup unused/orphan folders.

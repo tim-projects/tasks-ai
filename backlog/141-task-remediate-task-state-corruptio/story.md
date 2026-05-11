@@ -1,0 +1,1 @@
+Task metadata is becoming corrupted, causing tasks to misreport their own IDs (e.g., Task 137 claiming to be 139). This needs to be remediated and the repository state cleaned up.

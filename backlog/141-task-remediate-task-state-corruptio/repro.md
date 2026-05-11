@@ -1,0 +1,1 @@
+1. Observe 'hammer tasks list' reporting incorrect ID/metadata.
