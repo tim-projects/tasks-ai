@@ -2358,7 +2358,7 @@ class TasksCLI:
             C_HEADER = "\033[47;30m" # Black on White
             C_STATE = "\033[44;37m"  # White on Blue
             C_ID = "\033[32m"        # Green
-            C_PRIO = "\033[35m"      # Magenta
+            C_PRIO = "\033[1;35m"    # Bright Magenta
             C_TYPE = "\033[36m"      # Cyan
             C_RESET = "\033[0m"
 
