@@ -618,37 +618,96 @@ class TasksCLI:
         self.log("Use -j for JSON output. Run 'list' to see all tasks with their Ids.")
         self.finish()
 
-    def save(self, branch="tasks"):
+    def _push_tasks_branch(self, branch="tasks", fatal=True):
+        """Internal: push current .tasks worktree branch to remote.
+        If fatal=False, returns result dict or None on failure; does not exit.
+        If fatal=True, calls self.error() on failure (exits)."""
         if not os.path.exists(self.tasks_path):
-            self.error("Tasks not initialized. Run 'hammer tasks init' first.")
+            msg = "Tasks not initialized. Run 'hammer tasks init' first."
+            if fatal:
+                self.error(msg)
+            return None
         remotes = self._run_git(["remote", "-v"], cwd=self.tasks_path)
         if not remotes.stdout.strip():
             if self.dev or self.yes:
                 current = self._run_git(
                     ["rev-parse", "--abbrev-ref", "HEAD"], cwd=self.tasks_path
                 ).stdout.strip()
-                mode = "--dev" if self.dev else "-y"
                 self.log(
-                    f"No remote configured - continuing in local-only mode ({mode})"
+                    "No remote configured - skipping push (local-only mode)"
                 )
-                self.finish({"branch": branch, "remote": None, "from_branch": current})
+                return {"branch": branch, "remote": None, "from_branch": current}
+            else:
+                msg = "No remote configured in .tasks. Set up a remote or use --dev / -y flag."
+                if fatal:
+                    self.error(msg)
+                return None
+        current = self._run_git(
+            ["rev-parse", "--abbrev-ref", "HEAD"], cwd=self.tasks_path
+        ).stdout.strip()
+        push_result = self._run_git(
+            ["push", "-u", "origin", f"{current}:refs/heads/{branch}"],
+            cwd=self.tasks_path,
+        )
+        if push_result.returncode != 0:
+            msg = f"Failed to push .tasks worktree to remote: {push_result.stderr}"
+            if fatal:
+                self.error(msg)
+            else:
+                self.log(f"Warning: {msg}")
+                return None
+        self.log(f"Pushed .tasks ({current}) to origin/{branch}")
+        return {"branch": branch, "remote": "origin", "from_branch": current}
+
+    def save(self, branch="tasks"):
+        """Command: save and push .tasks worktree to remote."""
+        result = self._push_tasks_branch(branch, fatal=True)
+        self.finish(result)
+
+    def restore(self, branch="tasks", force=False):
+        """Restore .tasks worktree from the specified backup branch."""
+        tasks_path = self.tasks_path
+        if os.path.exists(tasks_path):
+            if force:
+                self.log(f"WARNING: {tasks_path} exists. --force specified, will overwrite.")
+                # Remove existing .tasks
+                if os.path.isdir(tasks_path):
+                    shutil.rmtree(tasks_path)
+                else:
+                    os.remove(tasks_path)
             else:
                 self.error(
-                    "No remote configured in .tasks.",
-                    hint="Set up a remote or use --dev / -y flag for local-only mode.",
+                    f"The directory '{tasks_path}' already exists. Use --force to overwrite, or delete it first.",
+                    hint="If you need to recover a deleted .tasks, ensure it is completely removed before running restore.",
                 )
+        # Ensure we are in the main git repository
+        # Fetch latest from remote to get backup branch
+        fetch_res = self._run_git(["fetch", "origin"], cwd=self.root)
+        if fetch_res.returncode != 0:
+            self.error(f"Failed to fetch from remote: {fetch_res.stderr}")
+        # Prune any stale worktree references
+        self._run_git(["worktree", "prune"], cwd=self.root, check=False)
+        # Check if local branch exists
+        branch_check = self._run_git(["branch", "--list", branch], cwd=self.root)
+        if branch_check.returncode == 0 and branch in branch_check.stdout:
+            # Local branch exists; use it
+            self._run_git(["worktree", "add", tasks_path, branch], cwd=self.root)
         else:
-            current = self._run_git(
-                ["rev-parse", "--abbrev-ref", "HEAD"], cwd=self.tasks_path
-            ).stdout.strip()
-            push_result = self._run_git(
-                ["push", "-u", "origin", f"{current}:refs/heads/{branch}"],
-                cwd=self.tasks_path,
+            # Check remote branch
+            remote_check = self._run_git(
+                ["ls-remote", "--heads", "origin", branch], cwd=self.root
             )
-            if push_result.returncode != 0:
-                self.error(f"Failed to push to remote: {push_result.stderr}")
-            self.log(f"Pushed {current} to origin/{branch}")
-            self.finish({"branch": branch, "remote": "origin", "from_branch": current})
+            if not remote_check.stdout.strip():
+                self.error(
+                    f"Branch '{branch}' not found locally or on remote. Cannot restore."
+                )
+            # Create local branch from remote and add worktree
+            self._run_git(
+                ["worktree", "add", "-b", branch, tasks_path, f"origin/{branch}"],
+                cwd=self.root,
+            )
+        self.log(f"Restored .tasks worktree from branch '{branch}' at {tasks_path}")
+        self.finish({"restored": True, "branch": branch, "path": tasks_path})
 
     def _append_log(self, task_path, entry):
         if not task_path:
@@ -1987,6 +2046,11 @@ class TasksCLI:
                     ],
                     cwd=self.tasks_path,
                 )
+                # Auto-save .tasks worktree to remote backup branch (non-fatal)
+                try:
+                    self._push_tasks_branch("tasks", fatal=False)
+                except Exception as e:
+                    self.log(f"Warning: auto-save to tasks branch failed: {e}")
             else:
                 self._run_git(["add", "--all"], cwd=self.tasks_path)
                 self._run_git(

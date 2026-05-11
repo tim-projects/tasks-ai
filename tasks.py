@@ -48,6 +48,22 @@ if __name__ == "__main__":
         help="Continue without remote (local-only mode).",
     )
 
+    restore_p = subparsers.add_parser(
+        "restore", help="Restore .tasks worktree from remote backup."
+    )
+    restore_p.add_argument(
+        "--branch",
+        "-b",
+        default="tasks",
+        help="Backup branch name to restore from (default: 'tasks').",
+    )
+    restore_p.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Force restore even if .tasks already exists (will overwrite). DANGEROUS: may lose local changes.",
+    )
+
     list_p = subparsers.add_parser("list", help="List tasks.")
     list_p.add_argument("--all", action="store_true")
 
@@ -212,9 +228,11 @@ if __name__ == "__main__":
     )
 
     if args.command == "init":
-        cli.init()
+        cli.init(force=getattr(args, "force", False))
     elif args.command == "save":
         cli.save(branch=args.branch)
+    elif args.command == "restore":
+        cli.restore(branch=args.branch, force=args.force)
     elif args.command == "create":
         cli.create(
             args.title,

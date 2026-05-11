@@ -19,6 +19,8 @@ USEFUL COMMANDS:
   tasks move <id> ARCHIVED -y  Archive and auto-push/delete branch (requires merged to main)
   tasks modify <id> --plan "1. Step"  Update task fields
   tasks modify <id> --regression-check  Mark regression check as passed (enables STAGING)
+  tasks save                   Manually backup .tasks worktree to remote 'tasks' branch
+  tasks restore                Restore .tasks worktree from remote backup (recover from loss)
   tasks reconcile              Scan for tasks with merged branches (dry-run)
   tasks reconcile --all        Clean up merged branches and archive tasks
   tasks cleanup --dry-run      Preview what would be cleaned up
@@ -42,8 +44,13 @@ Use 'tasks doctor --fix' to automatically fix:
   - (Other issues generate bug reports for manual review)
 
 REGRESSION CHECK: Moving to REVIEW auto-generates a diff at .tasks/review/<id>/diff.patch.
-Review the diff carefully. If regressions found, move the task back to PROGRESSING or TESTING to fix.
+Review the diff carefully. If regressions found, move the task back to PROGRESSING/TESTING to fix.
 Once clean, run 'tasks modify <id> --regression-check' to confirm and enable STAGING.
+
+BACKUP & RESTORE: The 'tasks' branch (local and remote) continuously backs up the .tasks worktree.
+- Every ARCHIVE automatically triggers 'tasks save' to push the latest .tasks state to the remote.
+- Use 'tasks save' to manually create a backup at any time.
+- If .tasks is lost, run 'tasks restore' to recover from the remote backup.
 """
 
 MISSION = """Mission: Identify and fix the highest priority test failures first."""
