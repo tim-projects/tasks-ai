@@ -120,6 +120,9 @@ if __name__ == "__main__":
         help="(ignored) Branch name is auto-generated from title.",
     )
 
+    aud_p = subparsers.add_parser("audit", help="Generate an audit log after reviewing the patch.")
+    aud_p.add_argument("id", help="Task ID.")
+
     mod_p = subparsers.add_parser("modify", help="Update task.")
     mod_p.add_argument("filename", help="Task Id (or filename).")
     mod_p.add_argument("--title", help="New title.")
