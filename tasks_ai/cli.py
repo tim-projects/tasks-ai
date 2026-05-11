@@ -670,9 +670,7 @@ class TasksCLI:
                 current = self._run_git(
                     ["rev-parse", "--abbrev-ref", "HEAD"], cwd=self.tasks_path
                 ).stdout.strip()
-                self.log(
-                    "No remote configured - skipping push (local-only mode)"
-                )
+                self.log("No remote configured - skipping push (local-only mode)")
                 return {"branch": branch, "remote": None, "from_branch": current}
             else:
                 msg = "No remote configured in .tasks. Set up a remote or use --dev / -y flag."
@@ -706,7 +704,9 @@ class TasksCLI:
         tasks_path = self.tasks_path
         if os.path.exists(tasks_path):
             if force:
-                self.log(f"WARNING: {tasks_path} exists. --force specified, will overwrite.")
+                self.log(
+                    f"WARNING: {tasks_path} exists. --force specified, will overwrite."
+                )
                 # Remove existing .tasks
                 if os.path.isdir(tasks_path):
                     shutil.rmtree(tasks_path)
