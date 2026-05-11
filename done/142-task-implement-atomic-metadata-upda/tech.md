@@ -1,1 +1,0 @@
-Update tasks_ai/file_manager.py to use temporary file creation and atomic rename for meta.json updates.

@@ -1,1 +1,0 @@
-- [x] 1. meta.json updates are atomic. 2. No ID corruption observed under concurrent load.
