@@ -1,0 +1,1 @@
+1. 1. Investigate sync implementation in repo.py. 2. Implement check against .gitignore. 3. Write test case to verify ignored files are excluded.

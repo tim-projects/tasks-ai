@@ -1,0 +1,8 @@
+{
+  "Id": 145,
+  "Ti": "Fix repo sync ignore logic",
+  "Cr": "260511 08:51",
+  "Bl": [],
+  "Pr": 1,
+  "Br": "145-issue-fix-repo-sync-ignore-logic"
+}

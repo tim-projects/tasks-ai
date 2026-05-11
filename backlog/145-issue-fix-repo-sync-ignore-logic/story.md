@@ -1,0 +1,1 @@
+Fix repo sync command to respect .gitignore

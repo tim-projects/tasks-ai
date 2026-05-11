@@ -1,0 +1,1 @@
+Sync logic is currently walking the file system and including files listed in .gitignore, such as the .tasks folder. Need to update the sync implementation to utilize git's exclusion list or check against .gitignore before syncing.

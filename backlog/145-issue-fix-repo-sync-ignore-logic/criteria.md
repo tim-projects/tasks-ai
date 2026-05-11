@@ -1,0 +1,1 @@
+- [ ] 1. Sync command no longer includes .tasks or other ignored files. 2. Verify with test case.
