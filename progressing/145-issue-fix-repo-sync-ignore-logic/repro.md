@@ -1,1 +1,0 @@
-1. Run ./hammer repo sync and observe that .tasks folder contents are included.
