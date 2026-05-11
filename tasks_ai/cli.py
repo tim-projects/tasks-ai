@@ -840,6 +840,23 @@ class TasksCLI:
         )
         return current
 
+    def audit(self, task_id):
+        """Generate an audit log after reviewing the patch."""
+        filepath, _ = self.find_task(task_id)
+        if not filepath:
+            self.error(f"Task {task_id} not found.")
+        
+        # Path based on consistent naming convention
+        patch_path = f".tasks/review/{task_id}.patch"
+        if not os.path.exists(patch_path):
+            self.error(f"No patch file found at {patch_path}. Move to REVIEW first.")
+            
+        audit_path = f".tasks/review/{task_id}.audit"
+        with open(audit_path, "w") as f:
+            f.write(f"Audited by: {os.getlogin()}\nTime: {os.times()}\n")
+            
+        self.log(f"✅ Audit log created for task {task_id} at {audit_path}")
+
     def create(
         self,
         title,
@@ -1087,6 +1104,13 @@ class TasksCLI:
 
         if regression_check is not None:
             if regression_check:
+                # Check for audit log
+                audit_path = f".tasks/review/{task_id}.audit"
+                if not os.path.exists(audit_path):
+                    self.error(
+                        "Cannot set regression check without audit log.",
+                        hint=f"Review the patch and run 'hammer tasks audit {task_id}' first."
+                    )
                 task.metadata["Rc"] = True
             else:
                 task.metadata["Rc"] = ""
