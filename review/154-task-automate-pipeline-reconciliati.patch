@@ -1,0 +1,162 @@
+diff --git a/diff_debug.log b/diff_debug.log
+index 7845b08..9894f6e 100644
+--- a/diff_debug.log
++++ b/diff_debug.log
+@@ -1 +1,8 @@
+ branch=143-issue-bug-repo-sync-loops-on-up-to-d, main_sha=196e3d376385f68b4ec33b18927df92846e49db0, diff_len=0
++<<<<<<< HEAD
++branch=143-issue-bug-repo-sync-loops-on-up-to-d, main_sha=e39271c3bf595c717dd0d80d44b3ddd6669d20b5, diff_len=0
++=======
++branch=149-task-audit-test, main_sha=e39271c3bf595c717dd0d80d44b3ddd6669d20b5, diff_len=0
++>>>>>>> 150-task-harden-regression-audit-with-c
++branch=153-task-implement-unified-taskpathreso, main_sha=e39271c3bf595c717dd0d80d44b3ddd6669d20b5, diff_len=7857
++branch=153-task-implement-unified-taskpathreso, main_sha=e840f18bb4c3c8423b6be3b1b69ec7c0bf269641, diff_len=5591
+diff --git a/tasks.py b/tasks.py
+index 80fc41c..128940e 100755
+--- a/tasks.py
++++ b/tasks.py
+@@ -114,11 +114,10 @@ if __name__ == "__main__":
+     cr_p.add_argument(
+         "--repro", nargs="+", help="Reproduction steps for issues (list)."
+     )
+-    cr_p.add_argument(
+-        "--branch",
+-        action="store_true",
+-        help="(ignored) Branch name is auto-generated from title.",
+-    )
++    cr_p.add_argument("--branch", action="store_true", help="Auto-generate branch.")
++
++    aud_p = subparsers.add_parser("audit", help="Generate an audit log after reviewing the patch.")
++    aud_p.add_argument("id", help="Task ID.")
+ 
+     mod_p = subparsers.add_parser("modify", help="Update task.")
+     mod_p.add_argument("filename", help="Task Id (or filename).")
+@@ -282,6 +281,8 @@ if __name__ == "__main__":
+             cli.list(show_all=False)
+     elif args.command == "checkpoint":
+         cli.checkpoint(args.filename)
++    elif args.command == "audit":
++        cli.audit(args.id)
+     elif args.command == "link":
+         cli.link(args.filename, args.blocked_by)
+     elif args.command == "reconcile":
+diff --git a/tasks_ai/cli.py b/tasks_ai/cli.py
+index 48b3d40..5249e3b 100644
+--- a/tasks_ai/cli.py
++++ b/tasks_ai/cli.py
+@@ -336,7 +336,16 @@ class TasksCLI:
+             new_status not in ALLOWED_TRANSITIONS.get(current_state, [])
+             and current_state != new_status
+         ):
+-            self.error(f"Forbidden transition: {current_state} -> {new_status}")
++            # Check if it was already merged
++            fname = os.path.basename(filepath)
++            _, branch = self._parse_filename(fname)
++            is_merged = self._run_git(["rev-parse", "--verify", branch]).returncode != 0
++            
++            hint = f"Allowed transitions from {current_state} are: {', '.join(ALLOWED_TRANSITIONS.get(current_state, []))}."
++            if is_merged:
++                hint += "\n\n⚠️  This branch appears to be already merged. Run 'hammer tasks reconcile' to clean up."
++            
++            self.error(f"Forbidden transition: {current_state} -> {new_status}", hint=hint)
+ 
+     def _run_repo(self, args, cwd=None):
+         cwd = cwd or self.root
+@@ -840,6 +849,7 @@ class TasksCLI:
+         )
+         return current
+ 
++
+     def create(
+         self,
+         title,
+@@ -1087,6 +1097,34 @@ class TasksCLI:
+ 
+         if regression_check is not None:
+             if regression_check:
++                res = self._resolve_task(filename)
++                
++                if not os.path.exists(res["audit_path"]):
++                    self.error(
++                        "Cannot set regression check without audit log.",
++                        hint=f"Review the patch and run 'hammer tasks audit {res['task_id']}' first."
++                    )
++                
++                # Verify checksum
++                import hashlib
++                with open(res["audit_path"], "r") as f:
++                    content = f.read()
++                    stored_hash = next((line.split(": ")[1].strip() for line in content.splitlines() if line.startswith("Patch-Hash:")), None)
++                
++                sha256 = hashlib.sha256()
++                with open(res["patch_path"], "rb") as f:
++                    while True:
++                        data = f.read(65536)
++                        if not data:
++                            break
++                        sha256.update(data)
++                
++                if stored_hash != sha256.hexdigest():
++                    self.error(
++                        "Audit log is invalid (patch content has changed).",
++                        hint=f"Please re-audit the patch and run 'hammer tasks audit {res['task_id']}' again."
++                    )
++                
+                 task.metadata["Rc"] = True
+             else:
+                 task.metadata["Rc"] = ""
+@@ -1129,6 +1167,30 @@ class TasksCLI:
+             }
+         )
+ 
++    def _resolve_task(self, filename):
++        """Standardize task identification and path resolution."""
++        filepath, _ = self.find_task(filename)
++        if not filepath:
++            self.error(
++                f"Task '{filename}' not found.",
++                hint="Use 'hammer tasks list' to see all available task filenames/IDs.",
++            )
++        
++        fname = os.path.basename(filepath)
++        task_id = fname.rsplit(".", 1)[0]
++        
++        # Consistent patch and audit paths
++        patch_path = f".tasks/review/{task_id}.patch"
++        audit_path = f".tasks/review/{task_id}.audit"
++        
++        return {
++            "filepath": filepath,
++            "filename": fname,
++            "task_id": task_id,
++            "patch_path": patch_path,
++            "audit_path": audit_path
++        }
++
+     def delete(self, filename, confirm=None):
+         filepath, current_state = self.find_task(filename)
+         if not filepath:
+@@ -3681,3 +3743,23 @@ class TasksCLI:
+         else:
+             self.log("✅ Upgrade complete!")
+             self.log(f"Installed to: {install_path}")
++    def audit(self, task_id):
++        import hashlib
++        res = self._resolve_task(task_id)
++        
++        if not os.path.exists(res["patch_path"]):
++            self.error(f"No patch file found at {res['patch_path']}. Move to REVIEW first.")
++            
++        sha256 = hashlib.sha256()
++        with open(res["patch_path"], "rb") as f:
++            while True:
++                data = f.read(65536)
++                if not data:
++                    break
++                sha256.update(data)
++        patch_hash = sha256.hexdigest()
++
++        with open(res["audit_path"], "w") as f:
++            f.write(f"Audited by: {os.getlogin()}\nTime: {os.times()}\nPatch-Hash: {patch_hash}\n")
++            
++        self.log(f"✅ Audit log created for task {res['task_id']} at {res['audit_path']} (Hash: {patch_hash[:8]}...)")
