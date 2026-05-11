@@ -1,1 +1,13 @@
-# No changes detected
+diff --git a/tasks_ai/constants.py b/tasks_ai/constants.py
+index b86a04b..a7d6d88 100644
+--- a/tasks_ai/constants.py
++++ b/tasks_ai/constants.py
+@@ -25,7 +25,7 @@ ALLOWED_TRANSITIONS = {
+     "STAGING": ["DONE", "ARCHIVED", "REVIEW", "BLOCKED", "REJECTED", "PROGRESSING"],
+     "DONE": ["ARCHIVED", "STAGING", "TESTING", "BLOCKED"],
+     "BLOCKED": ["READY", "PROGRESSING", "TESTING", "REVIEW", "STAGING", "DONE"],
+-    "ARCHIVED": ["PROGRESSING"],
++    "ARCHIVED": ["READY", "TESTING"],
+     "REJECTED": ["PROGRESSING"],
+ }
+ 
