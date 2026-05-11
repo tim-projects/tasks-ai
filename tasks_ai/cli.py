@@ -2354,20 +2354,19 @@ class TasksCLI:
             branch_width = max(branch_min, available // 3)
             summary_width = max(summary_min, available - branch_width)
 
-            C_HEADER = "\033[1;36m"
-            C_STATE = "\033[1;33m"
-            C_ID = "\033[32m"
-            C_PRIO = "\033[35m"
-            C_TYPE = "\033[36m"
+            # Color constants with backgrounds
+            C_HEADER = "\033[47;30m" # Black on White
+            C_STATE = "\033[44;37m"  # White on Blue
+            C_ID = "\033[32m"        # Green
+            C_PRIO = "\033[35m"      # Magenta
+            C_TYPE = "\033[36m"      # Cyan
             C_RESET = "\033[0m"
 
             for state, tasks in all_data.items():
-                print(f"\n{C_STATE}{state}{C_RESET}")
-                print("=" * term_width)
+                print(f"\n{C_STATE} {state:<{term_width - 1}} {C_RESET}")
                 print(
                     f"{C_HEADER}{'#':>3} {'P':>2} {'Summary':<{summary_width}} {'Type':<6} {'Branch':<{branch_width}}{C_RESET}"
                 )
-                print("-" * term_width)
                 for t in tasks:
                     summary_lines = textwrap.wrap(
                         t["summary"], width=summary_width
