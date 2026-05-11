@@ -1,0 +1,17 @@
+diff --git a/tasks_ai/cli.py b/tasks_ai/cli.py
+index 8b27ed6..756037f 100644
+--- a/tasks_ai/cli.py
++++ b/tasks_ai/cli.py
+@@ -870,7 +870,11 @@ class TasksCLI:
+         if task_type == "issue" and not repro:
+             missing.append("--repro")
+         if missing:
+-            self.error(f"MISSING PARTS: {', '.join(missing)}! HAMMER SAY NO! FIX! 🔨")
++            self.error(
++                f"MISSING PARTS: {', '.join(missing)}! HAMMER SAY NO! FIX! 🔨\n"
++                f"Usage: tasks create '<title>' --story '<story>' --tech '<tech>' --criteria '<criteria>' --plan '<plan>'"
++                f"{' --repro <repro>' if task_type == 'issue' else ''}"
++            )
+ 
+         MIN_LEN = 15
+         too_short = []
