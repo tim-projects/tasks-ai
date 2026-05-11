@@ -615,20 +615,30 @@ def main():
             return
         cmd_demote(args[0], args[1])
     elif cmd == "sync":
-        steps = [
-            ("testing", "staging"),
-            ("staging", "main"),
-            ("main", "staging"),
-            ("staging", "testing"),
-        ]
-        for i, (src, dst) in enumerate(steps, 1):
-            log(f"[sync {i}/{len(steps)}] Merging {src} → {dst}...")
-            try:
-                cmd_merge(src, dst, auto_commit=False)
-            except SystemExit:
-                error(
-                    f"SYNC FAILED at step {i}/{len(steps)}: {src} → {dst}. Resolve conflicts and re-run sync."
-                )
+        # Check for untracked files
+        untracked = run(["git", "ls-files", "--others", "--exclude-standard"], capture=True).stdout.strip()
+        # Check for unmerged commits in staging/testing
+        unmerged = []
+        for branch in ["staging", "testing"]:
+            log_res = run(["git", "log", f"main..{branch}", "--oneline"], capture=True).stdout.strip()
+            if log_res:
+                unmerged.append(f"Branch '{branch}' has unmerged commits:\n{log_res}")
+
+        if untracked or unmerged:
+            report = "SYNC PRE-CHECK FAILED:\n"
+            if untracked:
+                report += f"Untracked files found:\n{untracked}\n"
+            if unmerged:
+                report += "\n".join(unmerged) + "\n"
+            error(report)
+
+        log("Syncing from main to pipeline...")
+        # Sync from main to staging, then testing
+        try:
+            cmd_merge("main", "staging", auto_commit=False)
+            cmd_merge("staging", "testing", auto_commit=False)
+        except SystemExit:
+            error("SYNC FAILED: Resolve conflicts and re-run sync.")
     elif cmd == "commit":
         if len(args) < 1:
             print(HELP_DOCS["commit"].strip())
