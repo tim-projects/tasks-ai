@@ -1,0 +1,1 @@
+1. Trigger a promotion without a regression check.

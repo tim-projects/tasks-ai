@@ -1,0 +1,1 @@
+Modify repo.py to dynamically include the actual path to the diff patch in the regression check error hint.

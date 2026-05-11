@@ -1,0 +1,1 @@
+When the regression check fails, the error message gives a generic file path in the hint. Improve this hint to show the specific file path for the current task.
