@@ -1,1 +1,0 @@
-1. Run ./hammer tasks create 'Test Task' without required flags.
