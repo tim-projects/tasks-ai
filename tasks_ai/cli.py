@@ -846,12 +846,10 @@ class TasksCLI:
         if not filepath:
             self.error(f"Task {task_id} not found.")
         
-        # Path based on consistent naming convention
-        patch_path = f".tasks/review/{task_id}.patch"
-        if not os.path.exists(patch_path):
-            self.error(f"No patch file found at {patch_path}. Move to REVIEW first.")
-            
+        # Use filename as task_id (e.g., 152-task-harden-audit-test)
+        task_id = filename
         audit_path = f".tasks/review/{task_id}.audit"
+        patch_path = f".tasks/review/{task_id}.patch"
         with open(audit_path, "w") as f:
             f.write(f"Audited by: {os.getlogin()}\nTime: {os.times()}\n")
             
