@@ -3694,3 +3694,28 @@ class TasksCLI:
         else:
             self.log("✅ Upgrade complete!")
             self.log(f"Installed to: {install_path}")
+
+    def verify(self, task_id):
+        """Verify criteria and generate a cryptographic audit file."""
+        import hashlib
+        res = self._resolve_task(task_id)
+        
+        criteria_path = os.path.join(os.path.dirname(res["patch_path"]), "criteria.md")
+        if not os.path.exists(criteria_path):
+            self.error(f"No criteria found at {criteria_path}")
+            
+        with open(criteria_path, "r") as f:
+            content = f.read()
+            if "- [ ]" in content:
+                self.error("Criteria not fully checked. Verify requirements first.")
+        
+        sha256 = hashlib.sha256()
+        sha256.update(content.encode("utf-8"))
+        criteria_hash = sha256.hexdigest()
+        
+        audit_path = criteria_path + ".audit"
+        with open(audit_path, "w") as f:
+            f.write(f"Criteria-Hash: {criteria_hash}\nVerified-By: {os.getlogin()}\nTime: {os.times()}\n")
+            
+        self.log(f"✅ Criteria verified and hashed: {criteria_hash[:8]}...")
+
