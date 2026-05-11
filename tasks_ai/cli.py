@@ -2354,11 +2354,18 @@ class TasksCLI:
             branch_width = max(branch_min, available // 3)
             summary_width = max(summary_min, available - branch_width)
 
+            C_HEADER = "\033[1;36m"
+            C_STATE = "\033[1;33m"
+            C_ID = "\033[32m"
+            C_PRIO = "\033[35m"
+            C_TYPE = "\033[36m"
+            C_RESET = "\033[0m"
+
             for state, tasks in all_data.items():
-                print(f"\n{state}")
+                print(f"\n{C_STATE}{state}{C_RESET}")
                 print("=" * term_width)
                 print(
-                    f"{'#':>3} {'P':>2} {'Summary':<{summary_width}} {'Type':<6} {'Branch':<{branch_width}}"
+                    f"{C_HEADER}{'#':>3} {'P':>2} {'Summary':<{summary_width}} {'Type':<6} {'Branch':<{branch_width}}{C_RESET}"
                 )
                 print("-" * term_width)
                 for t in tasks:
@@ -2382,8 +2389,11 @@ class TasksCLI:
                         s_line = summary_lines[i] if i < len(summary_lines) else ""
                         type_str = t["type"] if i == 0 else ""
                         b_line = branch_lines[i] if i < len(branch_lines) else ""
+                        id_f = f"{C_ID}{id_str:>3}{C_RESET}" if i == 0 else "   "
+                        p_f = f"{C_PRIO}{p_str:>2}{C_RESET}" if i == 0 else "  "
+                        t_f = f"{C_TYPE}{type_str:<6}{C_RESET}" if i == 0 else "      "
                         print(
-                            f"{id_str:>3} {p_str:>2} {s_line:<{summary_width}} {type_str:<6} {b_line:<{branch_width}}"
+                            f"{id_f} {p_f} {s_line:<{summary_width}} {t_f} {b_line:<{branch_width}}"
                         )
             self.finish()
 
