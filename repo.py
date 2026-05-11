@@ -225,6 +225,11 @@ def check_merged_to_testing(branch):
 def cmd_merge(src_input, target_input, auto_commit=True):
     src = resolve_branch(src_input)
     target = resolve_branch(target_input)
+    if target in ["main", "staging"]:
+        error(
+            f"Cannot merge branch '{src}' directly into '{target}' using `repo merge`.\n"
+            "Promotion to STAGING or MAIN must be performed via `hammer tasks move` to maintain state consistency."
+        )
     if target not in PIPELINE:
         if not FLAGS["yes"]:
             msg = f"Merging between task branches (outside pipeline: {src} -> {target}). Continue?"
