@@ -5,6 +5,7 @@
   "Bl": [],
   "Pr": 2,
   "Br": "138-task-fix-inconsistent-diff-patch-fi",
-  "Rc": "",
-  "Vp": true
+  "Rc": true,
+  "Vp": true,
+  "Tp": false
 }
