@@ -1790,7 +1790,7 @@ class TasksCLI:
             if not task.metadata.get("Rc"):
                 self.error(
                     f"Cannot move to {new_status}: regression check not passed (Rc flag not set).",
-                    hint="If this is a code change, please move to REVIEW, audit the diff at .tasks/review/<task_id>/diff.patch, then run 'tasks modify <id> --regression-check' to confirm.",
+                    hint="If this is a code change, please move to REVIEW, audit the diff at .tasks/review/<task_id>.patch, then run 'tasks modify <id> --regression-check' to confirm.",
                 )
 
                 # Sync and Reset for regression states
@@ -1909,7 +1909,7 @@ class TasksCLI:
                 task.metadata["Rc"] = ""
                 self._atomic_write(new_filepath, task)
                 self.log(
-                    "REVIEW entered: Diff generated. Check .tasks/review/<task_id>/diff.patch for regressions. "
+                    "REVIEW entered: Diff generated. Check .tasks/review/<task_id>.patch for regressions. "
                     "If issues found, move task back to PROGRESSING/TESTING to fix. "
                     "Once clean, run 'tasks modify <id> --regression-check' to enable STAGING."
                 )

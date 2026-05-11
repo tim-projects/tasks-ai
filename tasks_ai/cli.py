@@ -870,7 +870,11 @@ class TasksCLI:
         if task_type == "issue" and not repro:
             missing.append("--repro")
         if missing:
-            self.error(f"MISSING PARTS: {', '.join(missing)}! HAMMER SAY NO! FIX! 🔨")
+            self.error(
+                f"MISSING PARTS: {', '.join(missing)}! HAMMER SAY NO! FIX! 🔨\n"
+                f"Usage: tasks create '<title>' --story '<story>' --tech '<tech>' --criteria '<criteria>' --plan '<plan>'"
+                f"{' --repro <repro>' if task_type == 'issue' else ''}"
+            )
 
         MIN_LEN = 15
         too_short = []
@@ -1987,10 +1991,11 @@ class TasksCLI:
         ]:
             task = FM.load(filepath_str)
             if not task.metadata.get("Rc"):
+                patch_path = f".tasks/review/{task_id}.patch"
                 self.error(
                     f"Cannot move to {new_status}: regression check not passed (Rc flag not set).",
-                    hint="Regression check is required before moving to STAGING/DONE/ARCHIVED. Steps:\n"
-                    "  1. Review the diff patch at .tasks/review/<task_id>/diff.patch\n"
+                    hint=f"Regression check is required before moving to STAGING/DONE/ARCHIVED. Steps:\n"
+                    f"  1. Review the diff patch at {patch_path}\n"
                     "  2. Audit for regressions, breaking changes, or unexpected side-effects\n"
                     "  3. If satisfied, run: hammer tasks modify <id> --regression-check",
                 )
@@ -2037,7 +2042,7 @@ class TasksCLI:
                 self.error(
                     "Cannot move to ARCHIVED: regression check not passed (Rc flag not set).",
                     hint="Regression check is required before archiving. Steps:\n"
-                    "  1. Review the diff patch at .tasks/review/<task_id>/diff.patch\n"
+                    "  1. Review the diff patch at .tasks/review/<task_id>.patch\n"
                     "  2. Audit for regressions, breaking changes, or unexpected side-effects\n"
                     "  3. If satisfied, run: hammer tasks modify <id> --regression-check",
                 )
@@ -2119,7 +2124,7 @@ class TasksCLI:
                 task.metadata["Rc"] = ""
                 self._atomic_write(new_filepath, task)
                 self.log(
-                    "REVIEW entered: Diff generated. Check .tasks/review/<task_id>/diff.patch for regressions. "
+                    "REVIEW entered: Diff generated. Check .tasks/review/<task_id>.patch for regressions. "
                     "If issues found, move task back to PROGRESSING/TESTING to fix. "
                     "Once clean, run 'hammer tasks modify <id> --regression-check' to enable STAGING."
                 )

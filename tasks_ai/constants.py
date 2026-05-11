@@ -67,7 +67,7 @@ AGENT OPERATIONAL PROTOCOL:
 4. CREATION: 'create' requires --story, --tech, --criteria, and --plan. 
    --repro is mandatory for --type issue. Titles must be >= 10 chars.
  6. REVIEW & REGRESSION CHECK:
-    - When moving to REVIEW, a diff is auto-generated at `.tasks/review/<task_id>/diff.patch`.
+    - When moving to REVIEW, a diff is auto-generated at `.tasks/review/<task_id>.patch`.
     - Audit the diff for regressions, breaking changes, or unexpected side-effects.
     - If issues found, move task back to PROGRESSING/TESTING to fix, then re-test.
     - Once clean, run `tasks modify <id> --regression-check` to set Rc flag.

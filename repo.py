@@ -331,7 +331,7 @@ def cmd_promote(src_input, original_task_id=None):
                 error(
                     f"Task {task_id} moved to REVIEW for audit.",
                     hint="Regression check is required before promoting further. Steps:\n"
-                    "  1. Review the diff patch at .tasks/review/<task_id>/diff.patch\n"
+                    "  1. Review the diff patch at .tasks/review/<task_id>.patch\n"
                     "  2. Audit for regressions, breaking changes, or unexpected side-effects\n"
                     "  3. If satisfied, run: hammer tasks modify <id> --regression-check",
                 )
@@ -340,10 +340,11 @@ def cmd_promote(src_input, original_task_id=None):
 
                 task = FM.load(path)
                 if not task.metadata.get("Rc"):
+                    patch_path = f".tasks/review/{task_id}.patch"
                     error(
                         "Regression check not passed.",
-                        hint="Complete the regression check before promoting. Steps:\n"
-                        "  1. Review the diff patch at .tasks/review/<task_id>/diff.patch\n"
+                        hint=f"Complete the regression check before promoting. Steps:\n"
+                        f"  1. Review the diff patch at {patch_path}\n"
                         "  2. Audit for regressions, breaking changes, or unexpected side-effects\n"
                         "  3. If satisfied, run: hammer tasks modify <id> --regression-check",
                     )
