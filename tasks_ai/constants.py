@@ -77,13 +77,18 @@ AGENT OPERATIONAL PROTOCOL:
     - Use '.tasks/progressing/<task_id>/current-task.md' as primary scratchpad.
  8. SYNC: Use 'checkpoint' to pull git commits and current-task.md into task file.
     Use 'hammer sync' to keep testing, staging, and main branches aligned.
- 9. ARCHIVING: When moving STAGING -> ARCHIVED:
-    - Branch must be merged to main first (use 'hammer repo promote <branch>')
-    - Use 'tasks move <id> ARCHIVED -y' to auto-push and delete branch
-    - Or move to REJECTED if code was not merged
- 10. RULES: 
-    - All blockers (Bl) in metadata MUST be ARCHIVED before moving to PROGRESSING.
-    - Use 'list' to find tasks and 'current' to see full metadata/logs.
- 11. ERROR RECOVERY: If a command fails, read the 'error' field in the JSON response. 
-    The 'hint' provides actionable next steps.
+  9. ARCHIVING: When moving STAGING -> ARCHIVED:
+     - Branch must be merged to main first (use 'hammer repo promote <branch>')
+     - Use 'tasks move <id> ARCHIVED -y' to auto-push and delete branch
+     - Or move to REJECTED if code was not merged
+ 10. BACKUP & RESTORE:
+     - The 'tasks' branch (local and remote) serves as a continuous backup of the .tasks worktree.
+     - Archiving a task automatically triggers a save to the remote 'tasks' branch.
+     - Use 'hammer tasks restore' to recover .tasks from backup if lost or corrupted.
+     - Use 'hammer tasks save' to manually create a backup at any time.
+ 11. RULES: 
+     - All blockers (Bl) in metadata MUST be ARCHIVED before moving to PROGRESSING.
+     - Use 'list' to find tasks and 'current' to see full metadata/logs.
+ 12. ERROR RECOVERY: If a command fails, read the 'error' field in the JSON response. 
+     The 'hint' provides actionable next steps.
 """
