@@ -1,0 +1,8 @@
+{
+  "Id": 150,
+  "Ti": "Harden regression audit with checksum validation",
+  "Cr": "260511 12:54",
+  "Bl": [],
+  "Pr": 2,
+  "Br": "150-task-harden-regression-audit-with-c"
+}
